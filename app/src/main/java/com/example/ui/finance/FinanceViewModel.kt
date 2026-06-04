@@ -12,6 +12,11 @@ import com.example.data.repository.FinanceRepository
 import com.example.data.network.GeminiApiClient
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.Constraints
+import androidx.work.NetworkType
+import com.example.data.worker.SyncWorker
 
 class FinanceViewModel(context: Context) : ViewModel() {
 
@@ -159,6 +164,7 @@ class FinanceViewModel(context: Context) : ViewModel() {
             kotlinx.coroutines.delay(1800) // Simulated secure token exchange loading
             repository.syncBank(bankName)
             checkBudgetLimits()
+            triggerSync()
             _syncStatus.value = if (_language.value == "es") "Sincronizado con éxito con $bankName." else "Successfully synchronized accounts from $bankName."
             kotlinx.coroutines.delay(3000)
             _syncStatus.value = null
@@ -209,6 +215,22 @@ class FinanceViewModel(context: Context) : ViewModel() {
         }
     }
 
+    private val appContext = context.applicationContext
+
+    private fun triggerSync() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+        val syncRequest = OneTimeWorkRequestBuilder<SyncWorker>()
+            .setConstraints(constraints)
+            .build()
+        WorkManager.getInstance(appContext).enqueue(syncRequest)
+    }
+
+    suspend fun extractReceiptImage(imageBytes: ByteArray): com.example.data.network.ReceiptExtraction? {
+        return GeminiApiClient.extractReceiptInfo(imageBytes, transactions.value)
+    }
+
     // --- Operation Services ---
     fun addManualTransaction(concept: String, amount: Double, category: String, subcategory: String, bankName: String, currency: String = "EUR") {
         viewModelScope.launch {
@@ -242,6 +264,7 @@ class FinanceViewModel(context: Context) : ViewModel() {
             )
             repository.insertTransaction(newTx)
             checkBudgetLimits()
+            triggerSync()
         }
     }
 
@@ -256,6 +279,7 @@ class FinanceViewModel(context: Context) : ViewModel() {
             repository.learnCategorizationRule(transaction.concept, newCategory, newSubcategory)
             
             checkBudgetLimits()
+            triggerSync()
         }
     }
 
@@ -291,6 +315,7 @@ class FinanceViewModel(context: Context) : ViewModel() {
         viewModelScope.launch {
             repository.clearAll()
             checkBudgetLimits()
+            triggerSync()
         }
     }
 

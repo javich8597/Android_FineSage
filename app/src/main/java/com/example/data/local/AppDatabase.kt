@@ -9,7 +9,7 @@ import com.example.data.model.Transaction
 import com.example.data.model.LearnedRule
 import com.example.data.model.CategoryItem
 
-@Database(entities = [Transaction::class, BudgetGoal::class, LearnedRule::class, CategoryItem::class], version = 2, exportSchema = false)
+@Database(entities = [Transaction::class, BudgetGoal::class, LearnedRule::class, CategoryItem::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun financeDao(): FinanceDao

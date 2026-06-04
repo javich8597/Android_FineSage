@@ -15,5 +15,6 @@ data class Transaction(
     val timestamp: Long,
     val isAnomaly: Boolean = false,
     val anomalyReason: String? = null,
-    val isMicroSpend: Boolean = false
+    val isMicroSpend: Boolean = false,
+    val isSynced: Boolean = false
 )

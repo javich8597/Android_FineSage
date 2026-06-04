@@ -20,6 +20,12 @@ interface FinanceDao {
     @Query("SELECT * FROM transactions WHERE isMicroSpend = 1 ORDER BY timestamp DESC")
     fun getMicroSpends(): Flow<List<Transaction>>
 
+    @Query("SELECT * FROM transactions WHERE isSynced = 0")
+    suspend fun getUnsyncedTransactions(): List<Transaction>
+
+    @Query("UPDATE transactions SET isSynced = 1 WHERE id IN (:ids)")
+    suspend fun markTransactionsAsSynced(ids: List<Int>)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: Transaction)
 

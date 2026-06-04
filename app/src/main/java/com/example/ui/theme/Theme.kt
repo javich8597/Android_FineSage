@@ -11,52 +11,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-private val SophisticatedDarkColorScheme = darkColorScheme(
-  primary = SophisticatedPrimary,
-  onPrimary = SophisticatedOnPrimary,
-  secondary = SophisticatedTertiary,
-  tertiary = SophisticatedTertiary,
-  background = SophisticatedBackground,
-  onBackground = SophisticatedText,
-  surface = SophisticatedSurface,
-  onSurface = SophisticatedText,
-  surfaceVariant = SophisticatedSurfaceVariant,
-  onSurfaceVariant = SophisticatedText
+private val VividColorScheme = darkColorScheme(
+  primary = VividPrimary,
+  onPrimary = VividOnPrimary,
+  secondary = VividSecondary,
+  onSecondary = VividText,
+  tertiary = VividTertiary,
+  background = VividBackground,
+  onBackground = VividText,
+  surface = VividSurface,
+  onSurface = VividText,
+  surfaceVariant = VividSurface,
+  onSurfaceVariant = VividTextSecondary,
+  error = ErrorRed
 )
-
-private val SophisticatedLightColorScheme = lightColorScheme(
-  primary = Color(0xFF005AC1),
-  onPrimary = Color.White,
-  secondary = Color(0xFF535F70),
-  tertiary = Color(0xFF6B5778),
-  background = Color(0xFFFDFCFF),
-  onBackground = Color(0xFF1A1C1E),
-  surface = Color(0xFFFDFCFF),
-  onSurface = Color(0xFF1A1C1E)
-)
-
-private val DarkColorScheme =
-  darkColorScheme(primary = Purple80, secondary = PurpleGrey80, tertiary = Pink80)
-
-private val LightColorScheme =
-  lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
-  )
 
 @Composable
 fun MyApplicationTheme(
-  darkTheme: Boolean = isSystemInDarkTheme(),
-  // Disable dynamicColor to respect the tailored premium brand identity exactly
+  darkTheme: Boolean = true, // Force Dark Theme for Premium Vibrant look
   dynamicColor: Boolean = false,
   content: @Composable () -> Unit,
 ) {
-  val colorScheme =
-    when {
-      darkTheme -> SophisticatedDarkColorScheme
-      else -> SophisticatedLightColorScheme
-    }
-
-  MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
+  MaterialTheme(colorScheme = VividColorScheme, typography = Typography, content = content)
 }
