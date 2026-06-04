@@ -1,0 +1,6 @@
+{
+  "name": "FinSage AI",
+  "description": "Tu coach financiero personal con inteligencia artificial, control de gastos, recomendación de ahorros y alertas en tiempo real.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
