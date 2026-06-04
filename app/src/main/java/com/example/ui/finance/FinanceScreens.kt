@@ -19,6 +19,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -78,6 +79,7 @@ fun FinanceAppScreen(viewModel: FinanceViewModel) {
     val language by viewModel.language.collectAsState()
     val isBiometricsEnabled by viewModel.isBiometricsEnabled.collectAsState()
     val isUserAuthenticated by viewModel.isUserAuthenticated.collectAsState()
+    var appUnlockedViaBiometrics by remember { mutableStateOf(false) }
 
     // Setup active translation bundle
     val labels = remember(language) { Localization[language] ?: Localization["es"]!! }
@@ -90,39 +92,33 @@ fun FinanceAppScreen(viewModel: FinanceViewModel) {
     var showAddTxDialog by remember { mutableStateOf(false) }
     var showAddGoalDialog by remember { mutableStateOf(false) }
 
-    // Custom background brush based on Selected theme (Sophisticated Dark vs Clean Dynamic Light)
-    val backgroundBrush = if (isDarkMode) {
-        Brush.verticalGradient(
-            colors = listOf(Color(0xFF0F1113), Color(0xFF16191D))
-        )
-    } else {
-        Brush.verticalGradient(
-            colors = listOf(Color(0xFFFAFBFD), Color(0xFFEFEFF4))
-        )
-    }
+    // Use material background directly
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val backgroundBrush = Brush.verticalGradient(
+        colors = listOf(backgroundColor, MaterialTheme.colorScheme.surface)
+    )
 
-    val contentColor = if (isDarkMode) Color(0xFFE2E2E6) else Color(0xFF151515)
+    val contentColor = MaterialTheme.colorScheme.onBackground
 
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
         modifier = Modifier
             .fillMaxSize()
             .testTag("main_scaffold"),
+        floatingActionButtonPosition = FabPosition.Center,
         bottomBar = {
             if (isUserAuthenticated) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(if (isDarkMode) Color(0xFF1A1C1E) else Color(0xFFF0F3F9))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .windowInsetsPadding(WindowInsets.navigationBars)
                 ) {
-                    if (isDarkMode) {
-                        Divider(color = Color(0xFF2D3135), thickness = 1.dp)
-                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), thickness = 1.dp)
                     NavigationBar(
-                        containerColor = if (isDarkMode) Color(0xFF1A1C1E) else Color(0xFFF0F3F9),
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         tonalElevation = 0.dp,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().height(64.dp)
                     ) {
                         val navigateToRoute: (String) -> Unit = { route ->
                             navController.navigate(route) {
@@ -138,13 +134,13 @@ fun FinanceAppScreen(viewModel: FinanceViewModel) {
                             selected = currentRoute == Screen.Dashboard.route,
                             onClick = { navigateToRoute(Screen.Dashboard.route) },
                             icon = { Icon(Icons.Filled.AccountBalanceWallet, null) },
-                            label = { Text(labels["nav_resumen"] ?: "") },
+                            alwaysShowLabel = false,
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                                selectedTextColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                                indicatorColor = if (isDarkMode) Color(0xFF3F4759) else MaterialTheme.colorScheme.secondaryContainer,
-                                unselectedIconColor = Color.Gray,
-                                unselectedTextColor = Color.Gray
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
                             modifier = Modifier.testTag("nav_item_overview")
                         )
@@ -152,13 +148,13 @@ fun FinanceAppScreen(viewModel: FinanceViewModel) {
                             selected = currentRoute == Screen.Coach.route,
                             onClick = { navigateToRoute(Screen.Coach.route) },
                             icon = { Icon(Icons.Filled.Psychology, null) },
-                            label = { Text(labels["nav_coach"] ?: "") },
+                            alwaysShowLabel = false,
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                                selectedTextColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                                indicatorColor = if (isDarkMode) Color(0xFF3F4759) else MaterialTheme.colorScheme.secondaryContainer,
-                                unselectedIconColor = Color.Gray,
-                                unselectedTextColor = Color.Gray
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
                             modifier = Modifier.testTag("nav_item_coach")
                         )
@@ -166,27 +162,37 @@ fun FinanceAppScreen(viewModel: FinanceViewModel) {
                             selected = currentRoute == Screen.Goals.route,
                             onClick = { navigateToRoute(Screen.Goals.route) },
                             icon = { Icon(Icons.Filled.Flag, null) },
-                            label = { Text(labels["nav_metas"] ?: "") },
+                            alwaysShowLabel = false,
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                                selectedTextColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                                indicatorColor = if (isDarkMode) Color(0xFF3F4759) else MaterialTheme.colorScheme.secondaryContainer,
-                                unselectedIconColor = Color.Gray,
-                                unselectedTextColor = Color.Gray
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
                             modifier = Modifier.testTag("nav_item_goals")
                         )
+                        // Empty space for floating action button in center
+                        if (currentRoute == Screen.Dashboard.route) {
+                            NavigationBarItem(
+                                selected = false,
+                                onClick = { },
+                                icon = { },
+                                alwaysShowLabel = false,
+                                enabled = false
+                            )
+                        }
                         NavigationBarItem(
                             selected = currentRoute == Screen.History.route,
                             onClick = { navigateToRoute(Screen.History.route) },
                             icon = { Icon(Icons.Filled.History, null) },
-                            label = { Text(if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "Historial" else "History") },
+                            alwaysShowLabel = false,
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                                selectedTextColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                                indicatorColor = if (isDarkMode) Color(0xFF3F4759) else MaterialTheme.colorScheme.secondaryContainer,
-                                unselectedIconColor = Color.Gray,
-                                unselectedTextColor = Color.Gray
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
                             modifier = Modifier.testTag("nav_item_history")
                         )
@@ -194,13 +200,13 @@ fun FinanceAppScreen(viewModel: FinanceViewModel) {
                             selected = currentRoute == Screen.Charts.route,
                             onClick = { navigateToRoute(Screen.Charts.route) },
                             icon = { Icon(Icons.Filled.BarChart, null) },
-                            label = { Text(labels["nav_charts"] ?: "") },
+                            alwaysShowLabel = false,
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                                selectedTextColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                                indicatorColor = if (isDarkMode) Color(0xFF3F4759) else MaterialTheme.colorScheme.secondaryContainer,
-                                unselectedIconColor = Color.Gray,
-                                unselectedTextColor = Color.Gray
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
                             modifier = Modifier.testTag("nav_item_charts")
                         )
@@ -208,13 +214,13 @@ fun FinanceAppScreen(viewModel: FinanceViewModel) {
                             selected = currentRoute == Screen.Settings.route,
                             onClick = { navigateToRoute(Screen.Settings.route) },
                             icon = { Icon(Icons.Filled.Tune, null) },
-                            label = { Text(labels["nav_config"] ?: "") },
+                            alwaysShowLabel = false,
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                                selectedTextColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                                indicatorColor = if (isDarkMode) Color(0xFF3F4759) else MaterialTheme.colorScheme.secondaryContainer,
-                                unselectedIconColor = Color.Gray,
-                                unselectedTextColor = Color.Gray
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
                             modifier = Modifier.testTag("nav_item_settings")
                         )
@@ -224,15 +230,27 @@ fun FinanceAppScreen(viewModel: FinanceViewModel) {
         },
         floatingActionButton = {
             if (isUserAuthenticated && currentRoute == Screen.Dashboard.route) {
-                FloatingActionButton(
-                    onClick = { showAddTxDialog = true },
-                    containerColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                    contentColor = if (isDarkMode) Color(0xFF003258) else Color.White,
+                Box(
                     modifier = Modifier
+                        .offset(y = 52.dp)
                         .testTag("add_trans_fab")
-                        .padding(bottom = 16.dp)
+                        .size(68.dp)
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary)
+                            ),
+                            shape = CircleShape
+                        )
+                        .clip(CircleShape)
+                        .clickable(onClick = { showAddTxDialog = true }),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = labels["add_tx"])
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = labels["add_tx"],
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
                 }
             }
         }
@@ -244,13 +262,19 @@ fun FinanceAppScreen(viewModel: FinanceViewModel) {
                 .sophisticatedDotMesh(isDarkMode)
                 .padding(paddingValues)
         ) {
-            // --- SECURITY LOCK OVERLAY (BIOMETRIC) ---
-            if (isBiometricsEnabled && !isUserAuthenticated) {
+            // --- SECURITY LOCK OVERLAY (SUPABASE AUTH) ---
+            if (!isUserAuthenticated) {
+                com.example.ui.shared.AuthScreen(
+                    viewModel = viewModel,
+                    labels = labels,
+                    isDarkMode = isDarkMode
+                )
+            } else if (isBiometricsEnabled && !appUnlockedViaBiometrics) {
                 BiometricLockScreen(
                     labels = labels,
                     isDarkMode = isDarkMode,
                     onSuccess = {
-                        viewModel.setAuthenticated(true)
+                        appUnlockedViaBiometrics = true
                         Toast.makeText(context, labels["bio_success"], Toast.LENGTH_SHORT).show()
                     }
                 )

@@ -2,27 +2,22 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Premium and Vibrant Dark Palette (Young target)
-val VividBackground = Color(0xFF0B0A0F) 
-val VividSurface = Color(0xFF1E1A26) 
-val VividText = Color(0xFFFFFFFF)
-val VividTextSecondary = Color(0xFFA09DB0)
+// Premium Minimalist Palette (Fintech style)
+// Dark Theme
+val DeepBlack = Color(0xFF000000)
+val DarkSurface = Color(0xFF111111)
+val DarkSurfaceVariant = Color(0xFF1A1A1A)
+val BrightCyan = Color(0xFF00FFD1) // Vibrant accent
+val SoftGreen = Color(0xFF00FFA3) // Success
+val SoftRed = Color(0xFFFF3366) // Error/Anomaly
 
-// Vibrant accents
-val VividPrimary = Color(0xFF00E5FF) // Neon Cyan
-val VividOnPrimary = Color(0xFF000000)
-val VividSecondary = Color(0xFFB026FF) // Neon Purple
-val VividTertiary = Color(0xFFFF007F) // Vivid Pink
+// Light Theme
+val PureWhite = Color(0xFFFFFFFF)
+val LightSurface = Color(0xFFF7F7F7)
+val LightSurfaceVariant = Color(0xFFEDEDED)
+val DarkBlueAccent = Color(0xFF0D1B2A)
+val CleanGreen = Color(0xFF00C853)
+val CleanRed = Color(0xFFD50000)
 
-val SuccessGreen = Color(0xFF39FF14) // Neon Green
-val ErrorRed = Color(0xFFFF3366)
-
-// Original template palette fallback
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
-
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+val NeutralText = Color(0xFF888888)
 

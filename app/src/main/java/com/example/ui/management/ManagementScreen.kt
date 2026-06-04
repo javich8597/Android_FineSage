@@ -400,7 +400,7 @@ fun ManagementTab(
             ) {
                 Button(
                     onClick = {
-                        viewModel.setAuthenticated(false)
+                        viewModel.logOut()
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isDarkMode) Color(0xFF3F4759) else Color(0xFFE3EDF7),

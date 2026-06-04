@@ -18,10 +18,22 @@ import androidx.work.Constraints
 import androidx.work.NetworkType
 import com.example.data.worker.SyncWorker
 
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.status.SessionStatus
+import com.example.data.network.SupabaseApiClient
+
 class FinanceViewModel(context: Context) : ViewModel() {
 
     private val database = AppDatabase.getDatabase(context)
     private val repository = FinanceRepository(database.financeDao())
+
+    // Supabase Auth State
+    private val _supabaseUserEmail = MutableStateFlow<String?>(null)
+    val supabaseUserEmail: StateFlow<String?> = _supabaseUserEmail.asStateFlow()
+
+    private val _authError = MutableStateFlow<String?>(null)
+    val authError: StateFlow<String?> = _authError.asStateFlow()
 
     // --- Database Flows ---
     val transactions: StateFlow<List<Transaction>> = repository.allTransactions
@@ -82,12 +94,25 @@ class FinanceViewModel(context: Context) : ViewModel() {
     val exchangeRatesState: StateFlow<Map<String, Double>> = _exchangeRatesState.asStateFlow()
 
     init {
-        // Prepopulate data securely so the UI has immediate rich content to showcase
+        // Monitor Supabase session
         viewModelScope.launch {
-            repository.initializeDefaultDataIfEmpty()
-            checkBudgetLimits()
-            // Pull first recommendation right away
-            askCoachingAdvisor()
+            SupabaseApiClient.client.auth.sessionStatus.collect { status ->
+                when (status) {
+                    is SessionStatus.Authenticated -> {
+                        _supabaseUserEmail.value = status.session.user?.email
+                        _isUserAuthenticated.value = true
+                        
+                        // Load offline data if logged in
+                        repository.initializeDefaultDataIfEmpty()
+                        checkBudgetLimits()
+                        askCoachingAdvisor()
+                    }
+                    else -> {
+                        _supabaseUserEmail.value = null
+                        _isUserAuthenticated.value = false
+                    }
+                }
+            }
         }
 
         // Real-Time Currency Fluctuations Ticker
@@ -119,7 +144,47 @@ class FinanceViewModel(context: Context) : ViewModel() {
     }
 
     fun setAuthenticated(auth: Boolean) {
+        // Obsolete if purely using supabase status, keeping for fallback
         _isUserAuthenticated.value = auth
+    }
+
+    // --- Supabase Authentication ---
+    fun login(email: String, pass: String) {
+        viewModelScope.launch {
+            try {
+                _authError.value = null
+                SupabaseApiClient.client.auth.signInWith(Email) {
+                    this.email = email
+                    password = pass
+                }
+            } catch (e: Exception) {
+                _authError.value = "Login failed: ${e.localizedMessage}"
+            }
+        }
+    }
+
+    fun signUp(email: String, pass: String) {
+        viewModelScope.launch {
+            try {
+                _authError.value = null
+                SupabaseApiClient.client.auth.signUpWith(Email) {
+                    this.email = email
+                    password = pass
+                }
+            } catch (e: Exception) {
+                _authError.value = "Signup failed: ${e.localizedMessage}"
+            }
+        }
+    }
+
+    fun logOut() {
+        viewModelScope.launch {
+            try {
+                SupabaseApiClient.client.auth.signOut()
+            } catch (e: Exception) {
+                _authError.value = "Logout failed: ${e.localizedMessage}"
+            }
+        }
     }
 
     // --- Currency Controls ---

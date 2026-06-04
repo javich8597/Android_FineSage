@@ -197,69 +197,92 @@ fun HistoryTab(viewModel: FinanceViewModel, labels: Map<String, String>, isDarkM
         }
 
         // Search & Filters Box
+        var filtersExpanded by remember { mutableStateOf(false) }
+        
         Card(
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = if (isDarkMode) Color(0xFF141618) else Color(0xFFF0F2F6)),
-            modifier = Modifier.fillMaxWidth()
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(0.dp)
         ) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Search Input
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text(if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "Buscar por concepto, categoría..." else "Search concept or categories...") },
-                    leadingIcon = { Icon(Icons.Filled.Search, null, tint = Color.Gray) },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Filter by Entity (BankName)
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "Filtrar por Entidad:" else "Filter by Entity:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                // Search Input with Filter Toggle
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text(if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "Buscar..." else "Search...") },
+                        leadingIcon = { Icon(Icons.Filled.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                    
+                    FilledIconButton(
+                        onClick = { filtersExpanded = !filtersExpanded },
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = if (filtersExpanded || selectedBankFilter != "Todos" || selectedCategoryFilter != "Todos") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                            contentColor = if (filtersExpanded || selectedBankFilter != "Todos" || selectedCategoryFilter != "Todos") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.size(52.dp),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        listOf("Todos", "Revolut", "TradeRepublic", "Banco Tradicional", "Manual").forEach { bank ->
-                            val isSelected = selectedBankFilter == bank
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { selectedBankFilter = bank },
-                                label = { Text(bank, fontSize = 11.sp) },
-                                isDarkMode = isDarkMode
-                            )
-                        }
+                        Icon(Icons.Filled.FilterList, contentDescription = "Filters")
                     }
                 }
 
-                // Filter by Category
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "Filtrar por Categoría:" else "Filter by Category:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        val distinctCats = remember(categoryItems) {
-                            listOf("Todos") + categoryItems.map { it.category }.distinct()
+                AnimatedVisibility(visible = filtersExpanded) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // Filter by Entity (BankName)
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "Filtrar por Entidad:" else "Filter by Entity:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(
+                                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                listOf("Todos", "Revolut", "TradeRepublic", "Banco Tradicional", "Manual").forEach { bank ->
+                                    val isSelected = selectedBankFilter == bank
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { selectedBankFilter = bank },
+                                        label = { Text(bank, fontSize = 11.sp) },
+                                        isDarkMode = isDarkMode
+                                    )
+                                }
+                            }
                         }
-                        distinctCats.forEach { cat ->
-                            val isSelected = selectedCategoryFilter == cat
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { selectedCategoryFilter = cat },
-                                label = { Text(cat, fontSize = 11.sp) },
-                                isDarkMode = isDarkMode
-                            )
+
+                        // Filter by Category
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "Filtrar por Categoría:" else "Filter by Category:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(
+                                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                val distinctCats = remember(categoryItems) {
+                                    listOf("Todos") + categoryItems.map { it.category }.distinct()
+                                }
+                                distinctCats.forEach { cat ->
+                                    val isSelected = selectedCategoryFilter == cat
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { selectedCategoryFilter = cat },
+                                        label = { Text(cat, fontSize = 11.sp) },
+                                        isDarkMode = isDarkMode
+                                    )
+                                }
+                            }
                         }
                     }
-                }
-
                 }
             }
+        }
 
         // Transactions List View
         if (filteredTx.isEmpty()) {

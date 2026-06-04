@@ -11,26 +11,47 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-private val VividColorScheme = darkColorScheme(
-  primary = VividPrimary,
-  onPrimary = VividOnPrimary,
-  secondary = VividSecondary,
-  onSecondary = VividText,
-  tertiary = VividTertiary,
-  background = VividBackground,
-  onBackground = VividText,
-  surface = VividSurface,
-  onSurface = VividText,
-  surfaceVariant = VividSurface,
-  onSurfaceVariant = VividTextSecondary,
-  error = ErrorRed
+private val MinimalistDarkColorScheme = darkColorScheme(
+    primary = BrightCyan,
+    onPrimary = DeepBlack,
+    secondary = SoftGreen,
+    onSecondary = DeepBlack,
+    background = DeepBlack,
+    onBackground = PureWhite,
+    surface = DarkSurface,
+    onSurface = PureWhite,
+    surfaceVariant = DarkSurfaceVariant,
+    onSurfaceVariant = NeutralText,
+    error = SoftRed,
+    onError = PureWhite
+)
+
+private val MinimalistLightColorScheme = lightColorScheme(
+    primary = DarkBlueAccent,
+    onPrimary = PureWhite,
+    secondary = CleanGreen,
+    onSecondary = PureWhite,
+    background = PureWhite,
+    onBackground = DeepBlack,
+    surface = LightSurface,
+    onSurface = DeepBlack,
+    surfaceVariant = LightSurfaceVariant,
+    onSurfaceVariant = NeutralText,
+    error = CleanRed,
+    onError = PureWhite
 )
 
 @Composable
 fun MyApplicationTheme(
-  darkTheme: Boolean = true, // Force Dark Theme for Premium Vibrant look
-  dynamicColor: Boolean = false,
-  content: @Composable () -> Unit,
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = false,
+    content: @Composable () -> Unit,
 ) {
-  MaterialTheme(colorScheme = VividColorScheme, typography = Typography, content = content)
+    val colorScheme = if (darkTheme) MinimalistDarkColorScheme else MinimalistLightColorScheme
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = Typography,
+        content = content
+    )
 }

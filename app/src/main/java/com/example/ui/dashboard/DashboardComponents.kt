@@ -1,17 +1,21 @@
 package com.example.ui.dashboard
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,82 +39,86 @@ fun SavingsGoalSimulator(labels: Map<String, String>, isDarkMode: Boolean) {
     val remainingMonths = monthsToReach % 12
     
     val isEsp = labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL"
+    var expanded by remember { mutableStateOf(false) }
 
     Card(
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDarkMode) Color(0xFF1A1C1E) else Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ),
-        border = if (isDarkMode) BorderStroke(1.dp, Color(0xFF2D3135)) else null,
-        elevation = CardDefaults.cardElevation(2.dp),
-        modifier = Modifier.fillMaxWidth()
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                text = if (isEsp) "Simulador de Meta de Ahorro" else "Savings Goal Simulator",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isDarkMode) Color.White else Color.Black
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Goal Amount Slider
-            Text(
-                text = if (isEsp) "Meta: ${"%.0f".format(goalAmount)} €" else "Goal: ${"%.0f".format(goalAmount)} €",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (isDarkMode) Color(0xFFBAC3FF) else MaterialTheme.colorScheme.primary
-            )
-            Slider(
-                value = goalAmount,
-                onValueChange = { goalAmount = it },
-                valueRange = 500f..50000f,
-                steps = 99, // 100 intervals
-                colors = SliderDefaults.colors(
-                    thumbColor = if (isDarkMode) Color(0xFFBAC3FF) else MaterialTheme.colorScheme.primary,
-                    activeTrackColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary
-                )
-            )
-
-            // Monthly Contribution Slider
-            Text(
-                text = if (isEsp) "Aportación mensual: ${"%.0f".format(monthlyContribution)} €" else "Monthly Contribution: ${"%.0f".format(monthlyContribution)} €",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (isDarkMode) Color(0xFFBAC3FF) else MaterialTheme.colorScheme.primary
-            )
-            Slider(
-                value = monthlyContribution,
-                onValueChange = { monthlyContribution = it },
-                valueRange = 50f..5000f,
-                steps = 99,
-                colors = SliderDefaults.colors(
-                    thumbColor = if (isDarkMode) Color(0xFFBAC3FF) else MaterialTheme.colorScheme.primary,
-                    activeTrackColor = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary
-                )
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (isDarkMode) Color(0xFF2C2F34) else Color(0xFFF0F2F6))
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                val timeString = if (years > 0) {
-                    if (isEsp) "$years años y $remainingMonths meses" else "$years years and $remainingMonths months"
-                } else {
-                    if (isEsp) "$remainingMonths meses" else "$remainingMonths months"
-                }
-
                 Text(
-                    text = if (isEsp) "Tiempo estimado: $timeString" else "Estimated Time: $timeString",
-                    fontSize = 14.sp,
+                    text = if (isEsp) "Simulador de Meta de Ahorro" else "Savings Goal Simulator",
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isDarkMode) Color.White else Color.Black
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
                 )
+                Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            
+            AnimatedVisibility(visible = expanded) {
+                Column {
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Goal Amount Slider
+                    Text(
+                        text = if (isEsp) "Meta: ${"%.0f".format(goalAmount)} €" else "Goal: ${"%.0f".format(goalAmount)} €",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Slider(
+                        value = goalAmount,
+                        onValueChange = { goalAmount = it },
+                        valueRange = 500f..50000f,
+                        steps = 99 // 100 intervals
+                    )
+
+                    // Monthly Contribution Slider
+                    Text(
+                        text = if (isEsp) "Aportación mensual: ${"%.0f".format(monthlyContribution)} €" else "Monthly Contribution: ${"%.0f".format(monthlyContribution)} €",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Slider(
+                        value = monthlyContribution,
+                        onValueChange = { monthlyContribution = it },
+                        valueRange = 50f..5000f,
+                        steps = 99
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val timeString = if (years > 0) {
+                            if (isEsp) "$years años y $remainingMonths meses" else "$years years and $remainingMonths months"
+                        } else {
+                            if (isEsp) "$remainingMonths meses" else "$remainingMonths months"
+                        }
+
+                        Text(
+                            text = if (isEsp) "Tiempo estimado: $timeString" else "Estimated Time: $timeString",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
     }
@@ -131,9 +139,9 @@ fun BankConnectItem(
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDarkMode) Color(0xFF1A1C1E) else Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ),
-        border = BorderStroke(1.dp, if (isConnected) (if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary) else (if (isDarkMode) Color(0xFF2D3135) else Color.Gray.copy(alpha = 0.2f))),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = Modifier
             .width(185.dp)
             .clickable { onSync() }
@@ -154,7 +162,7 @@ fun BankConnectItem(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(if (avatarLetter == "R") Color(0xFF0052FF) else if (avatarLetter == "S") Color(0xFFEC0000) else Color.DarkGray),
+                        .background(avatarBg),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -170,7 +178,7 @@ fun BankConnectItem(
                     modifier = Modifier
                         .size(8.dp)
                         .clip(CircleShape)
-                        .background(if (isConnected) (if (isDarkMode) Color(0xFFBAC3FF) else Color(0xFF107C41)) else Color.Gray)
+                        .background(if (isConnected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                 )
             }
 
@@ -178,7 +186,7 @@ fun BankConnectItem(
                 bankName,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isDarkMode) Color.White else Color.Black
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             if (isConnected && balanceText != null) {
@@ -186,20 +194,20 @@ fun BankConnectItem(
                     text = balanceText,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = if (isDarkMode) Color(0xFFBAC3FF) else MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary
                 )
             } else {
                 Text(
                     if (isConnected) (labels["status_connected"] ?: "") else (labels["status_disconnected"] ?: ""),
                     fontSize = 11.sp,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             Text(
                 labels["sync_now"] ?: "",
                 fontSize = 11.sp,
-                color = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -213,18 +221,17 @@ fun TransactionListItem(tx: Transaction, isDarkMode: Boolean, viewModel: Finance
     val convertedAmount = viewModel.convertCurrency(tx.amount, tx.currency, selectCurrency)
     val showOriginal = tx.currency != selectCurrency
 
-    val indicatorColor = if (tx.amount >= 0) (if (isDarkMode) Color(0xFFD1E4FF) else Color(0xFF107C41)) else (if (tx.isAnomaly) Color(0xFFD13438) else (if (isDarkMode) Color.White else Color.Black))
+    val indicatorColor = if (tx.amount >= 0) MaterialTheme.colorScheme.secondary else (if (tx.isAnomaly) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
 
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDarkMode) Color(0xFF1A1C1E) else Color.White
+            containerColor = MaterialTheme.colorScheme.surface
         ),
-        border = if (isDarkMode) BorderStroke(1.dp, Color(0xFF2D3135)) else null,
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 2.dp),
-        elevation = CardDefaults.cardElevation(1.dp)
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Row(
             modifier = Modifier
@@ -243,24 +250,24 @@ fun TransactionListItem(tx: Transaction, isDarkMode: Boolean, viewModel: Finance
                         .clip(CircleShape)
                         .background(
                             if (tx.amount >= 0) {
-                                (if (isDarkMode) Color(0xFFD1E4FF) else Color(0xFF107C41)).copy(alpha = 0.15f)
+                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
                             } else {
-                                if (tx.isAnomaly) Color(0xFFD13438).copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.15f)
+                                if (tx.isAnomaly) MaterialTheme.colorScheme.error.copy(alpha = 0.15f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)
                             }
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (tx.amount >= 0) {
-                            Icons.Filled.TrendingUp
+                            Icons.AutoMirrored.Filled.TrendingUp
                         } else {
-                            if (tx.isAnomaly) Icons.Filled.ReportGmailerrorred else Icons.Filled.TrendingDown
+                            if (tx.isAnomaly) Icons.Filled.ReportGmailerrorred else Icons.AutoMirrored.Filled.TrendingDown
                         },
                         contentDescription = null,
                         tint = if (tx.amount >= 0) {
-                            if (isDarkMode) Color(0xFFD1E4FF) else Color(0xFF107C41)
+                            MaterialTheme.colorScheme.secondary
                         } else {
-                            if (tx.isAnomaly) Color(0xFFD13438) else Color.Gray
+                            if (tx.isAnomaly) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                         }
                     )
                 }
@@ -273,7 +280,7 @@ fun TransactionListItem(tx: Transaction, isDarkMode: Boolean, viewModel: Finance
                             tx.concept,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isDarkMode) Color.White else Color.Black,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -282,17 +289,17 @@ fun TransactionListItem(tx: Transaction, isDarkMode: Boolean, viewModel: Finance
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(Color(0xFFD13438))
+                                    .background(MaterialTheme.colorScheme.error)
                                     .padding(horizontal = 4.dp, vertical = 2.dp)
                             ) {
-                                Text("ANOMALY", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                Text("ANOMALY", color = MaterialTheme.colorScheme.onError, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                     Text(
                         "${tx.bankName} • ${tx.category}",
                         fontSize = 11.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -308,7 +315,7 @@ fun TransactionListItem(tx: Transaction, isDarkMode: Boolean, viewModel: Finance
                     Text(
                         text = "(${if (tx.amount > 0) "+" else ""}${viewModel.formatCurrency(tx.amount, tx.currency)})",
                         fontSize = 11.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Normal
                     )
                 }

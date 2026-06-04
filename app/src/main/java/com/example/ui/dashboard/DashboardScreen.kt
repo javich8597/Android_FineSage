@@ -76,6 +76,10 @@ fun DashboardTab(
     val selectCurrency by viewModel.selectedCurrency.collectAsState()
     val liveRates by viewModel.exchangeRatesState.collectAsState()
 
+    var expandedAnomalies by remember { mutableStateOf(false) }
+    var expandedMicro by remember { mutableStateOf(false) }
+    var expandedGNN by remember { mutableStateOf(false) }
+
     val totalSpent = remember(txList, selectCurrency, liveRates) {
         txList.filter { it.amount < 0 }
             .sumOf { viewModel.convertCurrency(it.amount, it.currency, selectCurrency) }
@@ -121,19 +125,19 @@ fun DashboardTab(
                             text = if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "Hola, " else "Hello, ",
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Light,
-                            color = if (isDarkMode) Color.White else Color.Black
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
                             text = "Javier",
                             fontSize = 26.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isDarkMode) Color.White else Color.Black
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     }
                     Text(
                         text = (labels["app_tag"] ?: "").uppercase(),
                         fontSize = 10.sp,
-                        color = if (isDarkMode) Color(0xFFBAC3FF) else MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = 1.2.sp
                     )
@@ -144,13 +148,12 @@ fun DashboardTab(
                     modifier = Modifier
                         .size(46.dp)
                         .clip(CircleShape)
-                        .background(if (isDarkMode) Color(0xFF3F4759) else Color(0xFFE5F1FD))
-                        .border(1.dp, if (isDarkMode) Color(0xFF43474E) else Color.Transparent, CircleShape),
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "JS",
-                        color = if (isDarkMode) Color.White else MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -164,8 +167,8 @@ fun DashboardTab(
                 Card(
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFFFECEF),
-                        contentColor = Color(0xFFBC1C32)
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -177,7 +180,7 @@ fun DashboardTab(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Icon(Icons.Filled.Dangerous, null, tint = Color(0xFFE22B43), modifier = Modifier.size(24.dp))
+                            Icon(Icons.Filled.Dangerous, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(24.dp))
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = budgetAlert!!,
@@ -231,19 +234,19 @@ fun DashboardTab(
             Card(
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isDarkMode) Color.Transparent else Color.White
+                    containerColor = Color.Transparent
                 ),
-                border = if (isDarkMode) BorderStroke(1.dp, Color(0xFF2D3135)) else null,
-                elevation = CardDefaults.cardElevation(2.dp),
+                elevation = CardDefaults.cardElevation(0.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .then(
-                        if (isDarkMode) Modifier.background(
-                            Brush.linearGradient(
-                                colors = listOf(Color(0xFF1B2B41), Color(0xFF111418))
-                            ),
-                            shape = RoundedCornerShape(24.dp)
-                        ) else Modifier
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                MaterialTheme.colorScheme.surface
+                            )
+                        ),
+                        shape = RoundedCornerShape(24.dp)
                     )
             ) {
                 Column(
@@ -259,20 +262,20 @@ fun DashboardTab(
                         Text(
                             labels["card_total"] ?: "",
                             fontSize = 12.sp,
-                            color = if (isDarkMode) Color(0xFFD1E4FF) else Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.2.sp
                         )
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDarkMode) Color(0xFF004A77) else Color(0xFFE5F1FD))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha=0.1f))
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
                                 "REVOLUT SYNC",
                                 fontSize = 8.sp,
-                                color = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
+                                color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -281,7 +284,7 @@ fun DashboardTab(
                         viewModel.formatCurrency(netBalance, selectCurrency),
                         fontSize = 32.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = if (netBalance >= 0) (if (isDarkMode) Color.White else Color(0xFF107C41)) else Color(0xFFD13438)
+                        color = if (netBalance >= 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -290,8 +293,7 @@ fun DashboardTab(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(16.dp))
-                            .background(if (isDarkMode) Color(0x0DFFFFFF) else Color(0x06000000))
-                            .border(1.dp, if (isDarkMode) Color(0x1AFFFFFF) else Color(0x0D000000), RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                             .padding(12.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -299,13 +301,13 @@ fun DashboardTab(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(if (isDarkMode) Color(0xFFBAC3FF) else MaterialTheme.colorScheme.primary.copy(0.15f)),
+                                    .background(MaterialTheme.colorScheme.primary.copy(0.15f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     Icons.Filled.AutoAwesome,
                                     contentDescription = null,
-                                    tint = if (isDarkMode) Color(0xFF1A1C1E) else MaterialTheme.colorScheme.primary,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -317,7 +319,7 @@ fun DashboardTab(
                                     "AI Tip: Your micro-spending on subscriptions is down 12.5% this month. Keep it up!"
                                 },
                                 fontSize = 11.sp,
-                                color = if (isDarkMode) Color(0xFFC2C7CF) else Color(0xFF43474E),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 lineHeight = 15.sp,
                                 modifier = Modifier.weight(1f)
                             )
@@ -440,10 +442,9 @@ fun DashboardTab(
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDarkMode) Color(0xFF2B141B) else Color(0xFFFFF2F4)
+                        containerColor = MaterialTheme.colorScheme.errorContainer
                     ),
-                    border = BorderStroke(1.dp, Color(0xFFE22B43)),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().clickable { expandedAnomalies = !expandedAnomalies }
                 ) {
                     Column(
                         modifier = Modifier
@@ -451,37 +452,44 @@ fun DashboardTab(
                             .padding(16.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Warning, null, tint = Color(0xFFE22B43), modifier = Modifier.size(20.dp))
+                            Icon(Icons.Filled.Warning, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 labels["section_anomalies"] ?: "",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFFE22B43)
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.weight(1f)
                             )
+                            Icon(if (expandedAnomalies) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            "${labels["anomaly_warning"] ?: ""}: ${anomalies.size} transacciones sospechosas detectadas por la IA local basada en GNN (Graph Neural Network).",
-                            fontSize = 12.sp,
-                            color = if (isDarkMode) Color.White else Color.Black
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
 
-                        anomalies.forEach { tx ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(tx.concept, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (isDarkMode) Color.White else Color.Black)
-                                    Text(tx.anomalyReason ?: "", fontSize = 11.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        AnimatedVisibility(visible = expandedAnomalies) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    "${labels["anomaly_warning"] ?: ""}: ${anomalies.size} transacciones sospechosas detectadas por la IA local basada en GNN (Graph Neural Network).",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                anomalies.forEach { tx ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(tx.concept, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onErrorContainer)
+                                            Text(tx.anomalyReason ?: "", fontSize = 11.sp, color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha=0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        }
+                                        val convertedAnomaly = viewModel.convertCurrency(tx.amount, tx.currency, selectCurrency)
+                                        Text(viewModel.formatCurrency(convertedAnomaly, selectCurrency), fontSize = 13.sp, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                                    }
                                 }
-                                val convertedAnomaly = viewModel.convertCurrency(tx.amount, tx.currency, selectCurrency)
-                                Text(viewModel.formatCurrency(convertedAnomaly, selectCurrency), fontSize = 13.sp, color = Color(0xFFE22B43), fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -494,11 +502,10 @@ fun DashboardTab(
             Card(
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isDarkMode) Color(0xFF1A1C1E) else Color.White
+                    containerColor = MaterialTheme.colorScheme.surface
                 ),
-                border = if (isDarkMode) BorderStroke(1.dp, Color(0xFF2D3135)) else null,
-                elevation = CardDefaults.cardElevation(2.dp),
-                modifier = Modifier.fillMaxWidth()
+                elevation = CardDefaults.cardElevation(0.dp),
+                modifier = Modifier.fillMaxWidth().clickable { expandedGNN = !expandedGNN }
             ) {
                 Column(
                     modifier = Modifier
@@ -514,152 +521,160 @@ fun DashboardTab(
                             text = if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "Análisis de Patrones (GNN)" else "Patterns Analysis (GNN)",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isDarkMode) Color.White else Color.Black
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(if (isDarkMode) Color(0x33D1E4FF) else Color(0xFFE5F1FD))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                "REAL-TIME SCAN",
-                                fontSize = 8.sp,
-                                color = if (isDarkMode) Color(0xFFD1E4FF) else MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    "REAL-TIME SCAN",
+                                    fontSize = 8.sp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Icon(if (expandedGNN) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "Mapeado heurístico de dependencias financieras" else "Heuristic mapping of financial dependencies",
-                        fontSize = 11.sp,
-                        color = Color.Gray
-                    )
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Live Wave Chart custom Canvas drawing with GNN overlay
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(140.dp)
-                            .sophisticatedDotMesh(isDarkMode)
-                    ) {
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            val width = size.width
-                            val height = size.height
-
-                            // Draw a light decorative neural grid lines in background
-                            if (isDarkMode) {
-                                val nodes = listOf(
-                                    Offset(width * 0.25f, height * 0.3f),
-                                    Offset(width * 0.75f, height * 0.45f),
-                                    Offset(width * 0.55f, height * 0.8f),
-                                    Offset(width * 0.15f, height * 0.7f)
-                                )
-                                drawLine(Color(0x1AD1E4FF), nodes[0], nodes[1], strokeWidth = 1f)
-                                drawLine(Color(0x1AD1E4FF), nodes[1], nodes[2], strokeWidth = 1f)
-                                drawLine(Color(0x1AD1E4FF), nodes[0], nodes[2], strokeWidth = 1f)
-                                drawCircle(Color(0x2BD1E4FF), radius = 6f, center = nodes[0])
-                                drawCircle(Color(0x2BBAC3FF), radius = 8f, center = nodes[2])
-                            }
-
-                            // Draw baseline axis lines
-                            drawLine(
-                                color = Color.Gray.copy(alpha = 0.2f),
-                                start = Offset(0f, height * 0.8f),
-                                end = Offset(width, height * 0.8f),
-                                strokeWidth = 1.5f
+                    AnimatedVisibility(visible = expandedGNN) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "Mapeado heurístico de dependencias financieras" else "Heuristic mapping of financial dependencies",
+                                fontSize = 11.sp,
+                                color = Color.Gray
                             )
 
-                            if (txList.isNotEmpty()) {
-                                val points = txList.take(8).mapIndexed { idx, tx ->
-                                    val x = width - (idx * (width / 7))
-                                    // map amount to Y bounds
-                                    val cleanAmt = tx.amount.coerceIn(-500.0, 500.0)
-                                    val y = height * 0.54f - (cleanAmt.toFloat() / 500.0f) * (height * 0.35f)
-                                    Offset(x, y)
-                                }
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                                // Build curved path
-                                val path = Path()
-                                points.reversed().forEachIndexed { i, pt ->
-                                    if (i == 0) path.moveTo(pt.x, pt.y)
-                                    else path.lineTo(pt.x, pt.y)
-                                }
+                            // Live Wave Chart custom Canvas drawing with GNN overlay
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(140.dp)
+                                    .sophisticatedDotMesh(isDarkMode)
+                            ) {
+                                Canvas(modifier = Modifier.fillMaxSize()) {
+                                    val width = size.width
+                                    val height = size.height
 
-                                // Draw the outline wave
-                                drawPath(
-                                    path = path,
-                                    color = if (isDarkMode) Color(0xFFBAC3FF) else Color(0xFF0D5EAF),
-                                    style = Stroke(width = 4f)
-                                )
-
-                                // Area wave fill
-                                val areaPath = Path().apply {
-                                    addPath(path)
-                                    lineTo(width, height)
-                                    lineTo(0f, height)
-                                    close()
-                                }
-
-                                drawPath(
-                                    path = areaPath,
-                                    brush = Brush.verticalGradient(
-                                        colors = listOf(
-                                            (if (isDarkMode) Color(0xFFD1E4FF) else Color(0xFF0D5EAF)).copy(alpha = 0.2f),
-                                            Color.Transparent
+                                    // Draw a light decorative neural grid lines in background
+                                    if (isDarkMode) {
+                                        val nodes = listOf(
+                                            Offset(width * 0.25f, height * 0.3f),
+                                            Offset(width * 0.75f, height * 0.45f),
+                                            Offset(width * 0.55f, height * 0.8f),
+                                            Offset(width * 0.15f, height * 0.7f)
                                         )
-                                    )
-                                )
+                                        drawLine(Color(0x1AD1E4FF), nodes[0], nodes[1], strokeWidth = 1f)
+                                        drawLine(Color(0x1AD1E4FF), nodes[1], nodes[2], strokeWidth = 1f)
+                                        drawLine(Color(0x1AD1E4FF), nodes[0], nodes[2], strokeWidth = 1f)
+                                        drawCircle(Color(0x2BD1E4FF), radius = 6f, center = nodes[0])
+                                        drawCircle(Color(0x2BBAC3FF), radius = 8f, center = nodes[2])
+                                    }
 
-                                // Dots indicator
-                                points.forEach { pt ->
-                                    drawCircle(
-                                        color = if (isDarkMode) Color(0xFFD1E4FF) else Color(0xFF0D5EAF),
-                                        radius = 5f,
-                                        center = pt
+                                    // Draw baseline axis lines
+                                    drawLine(
+                                        color = Color.Gray.copy(alpha = 0.2f),
+                                        start = Offset(0f, height * 0.8f),
+                                        end = Offset(width, height * 0.8f),
+                                        strokeWidth = 1.5f
                                     )
+
+                                    if (txList.isNotEmpty()) {
+                                        val points = txList.take(8).mapIndexed { idx, tx ->
+                                            val x = width - (idx * (width / 7))
+                                            // map amount to Y bounds
+                                            val cleanAmt = tx.amount.coerceIn(-500.0, 500.0)
+                                            val y = height * 0.54f - (cleanAmt.toFloat() / 500.0f) * (height * 0.35f)
+                                            Offset(x, y)
+                                        }
+
+                                        // Build curved path
+                                        val path = Path()
+                                        points.reversed().forEachIndexed { i, pt ->
+                                            if (i == 0) path.moveTo(pt.x, pt.y)
+                                            else path.lineTo(pt.x, pt.y)
+                                        }
+
+                                        // Draw the outline wave
+                                        drawPath(
+                                            path = path,
+                                            color = if (isDarkMode) Color(0xFFBAC3FF) else Color(0xFF0D5EAF),
+                                            style = Stroke(width = 4f)
+                                        )
+
+                                        // Area wave fill
+                                        val areaPath = Path().apply {
+                                            addPath(path)
+                                            lineTo(width, height)
+                                            lineTo(0f, height)
+                                            close()
+                                        }
+
+                                        drawPath(
+                                            path = areaPath,
+                                            brush = Brush.verticalGradient(
+                                                colors = listOf(
+                                                    (if (isDarkMode) Color(0xFFD1E4FF) else Color(0xFF0D5EAF)).copy(alpha = 0.2f),
+                                                    Color.Transparent
+                                                )
+                                            )
+                                        )
+
+                                        // Dots indicator
+                                        points.forEach { pt ->
+                                            drawCircle(
+                                                color = if (isDarkMode) Color(0xFFD1E4FF) else Color(0xFF0D5EAF),
+                                                radius = 5f,
+                                                center = pt
+                                            )
+                                        }
+                                    }
                                 }
                             }
-                        }
-                    }
 
-                    // Interactive Legend from "Sophisticated Dark"
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceAround
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "OCIO" else "LEISURE",
-                                fontSize = 9.sp,
-                                color = Color.Gray,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Box(modifier = Modifier.size(width = 30.dp, height = 3.dp).clip(CircleShape).background(if (isDarkMode) Color(0xFFBAC3FF) else Color(0xFF535F70)))
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "HOGAR" else "HOME",
-                                fontSize = 9.sp,
-                                color = Color.Gray,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Box(modifier = Modifier.size(width = 30.dp, height = 3.dp).clip(CircleShape).background(if (isDarkMode) Color(0xFF43474E) else Color.LightGray))
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "INVERSIÓN" else "INVESTMENT",
-                                fontSize = 9.sp,
-                                color = Color.Gray,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Box(modifier = Modifier.size(width = 30.dp, height = 3.dp).clip(CircleShape).background(if (isDarkMode) Color(0xFFD1E4FF) else Color(0xFF005AC1)))
+                            // Interactive Legend from "Sophisticated Dark"
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceAround
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "OCIO" else "LEISURE",
+                                        fontSize = 9.sp,
+                                        color = Color.Gray,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Box(modifier = Modifier.size(width = 30.dp, height = 3.dp).clip(CircleShape).background(if (isDarkMode) Color(0xFFBAC3FF) else Color(0xFF535F70)))
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "HOGAR" else "HOME",
+                                        fontSize = 9.sp,
+                                        color = Color.Gray,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Box(modifier = Modifier.size(width = 30.dp, height = 3.dp).clip(CircleShape).background(if (isDarkMode) Color(0xFF43474E) else Color.LightGray))
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = if (labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL") "INVERSIÓN" else "INVESTMENT",
+                                        fontSize = 9.sp,
+                                        color = Color.Gray,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Box(modifier = Modifier.size(width = 30.dp, height = 3.dp).clip(CircleShape).background(if (isDarkMode) Color(0xFFD1E4FF) else Color(0xFF005AC1)))
+                                }
+                            }
                         }
                     }
                 }
@@ -672,9 +687,9 @@ fun DashboardTab(
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = if (isDarkMode) Color(0xFF1B2F3E) else Color(0xFFF0F7FF)
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
                     ),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().clickable { expandedMicro = !expandedMicro }
                 ) {
                     Column(
                         modifier = Modifier
@@ -682,28 +697,35 @@ fun DashboardTab(
                             .padding(16.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.MoneyOff, null, tint = if (isDarkMode) Color(0xFF73C5FF) else Color(0xFF0B63A2), modifier = Modifier.size(20.dp))
+                            Icon(Icons.Filled.MoneyOff, null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 labels["section_micro"] ?: "",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isDarkMode) Color(0xFF73C5FF) else Color(0xFF0B63A2)
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.weight(1f)
                             )
+                            Icon(if (expandedMicro) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            "${labels["micro_title"] ?: ""}: ${microSpends.size}.",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (isDarkMode) Color.White else Color.Black
-                        )
-                        val totalMicroAmt = microSpends.sumOf { it.amount }
-                        Text(
-                            "${labels["micro_total_impact"] ?: ""}: ${"%.2f".format(totalMicroAmt)} EUR",
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
+                        
+                        AnimatedVisibility(visible = expandedMicro) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    "${labels["micro_title"] ?: ""}: ${microSpends.size}.",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                val totalMicroAmt = microSpends.sumOf { it.amount }
+                                Text(
+                                    "${labels["micro_total_impact"] ?: ""}: ${"%.2f".format(totalMicroAmt)} EUR",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha=0.8f)
+                                )
+                            }
+                        }
                     }
                 }
             }
