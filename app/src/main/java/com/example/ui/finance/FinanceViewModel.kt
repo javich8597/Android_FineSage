@@ -348,6 +348,11 @@ class FinanceViewModel(context: Context) : ViewModel() {
         }
     }
 
+    fun predictCategory(concept: String): String {
+        val classified = repository.classifyAutonomous(concept, 0.0, rules.value)
+        return classified.first
+    }
+
     fun addCustomCategoryItem(category: String, subcategory: String) {
         viewModelScope.launch {
             if (category.trim().isNotEmpty() && subcategory.trim().isNotEmpty()) {

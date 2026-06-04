@@ -2,6 +2,7 @@ package com.example.ui.dashboard
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.animation.*
+import com.example.ui.finance.getCategoryIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -252,22 +253,18 @@ fun TransactionListItem(tx: Transaction, isDarkMode: Boolean, viewModel: Finance
                             if (tx.amount >= 0) {
                                 MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
                             } else {
-                                if (tx.isAnomaly) MaterialTheme.colorScheme.error.copy(alpha = 0.15f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)
+                                if (tx.isAnomaly) MaterialTheme.colorScheme.error.copy(alpha = 0.15f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                             }
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = if (tx.amount >= 0) {
-                            Icons.AutoMirrored.Filled.TrendingUp
-                        } else {
-                            if (tx.isAnomaly) Icons.Filled.ReportGmailerrorred else Icons.AutoMirrored.Filled.TrendingDown
-                        },
-                        contentDescription = null,
+                        imageVector = getCategoryIcon(tx.category),
+                        contentDescription = tx.category,
                         tint = if (tx.amount >= 0) {
                             MaterialTheme.colorScheme.secondary
                         } else {
-                            if (tx.isAnomaly) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                            if (tx.isAnomaly) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                         }
                     )
                 }

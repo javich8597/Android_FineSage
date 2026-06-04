@@ -375,9 +375,20 @@ fun AddTransactionModal(
     var selectedCategory by remember { mutableStateOf("Alimentos") }
     var selectedBank by remember { mutableStateOf("Manual") }
     var selectedCurrency by remember { mutableStateOf("EUR") }
+    var userModifiedCategory by remember { mutableStateOf(false) }
     
     val coroutineScope = rememberCoroutineScope()
     var isAnalyzing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(concept.text) {
+        if (!userModifiedCategory && concept.text.length > 2) {
+            kotlinx.coroutines.delay(300)
+            val predicted = viewModel.predictCategory(concept.text)
+            if (predicted.isNotEmpty()) {
+                selectedCategory = predicted
+            }
+        }
+    }
 
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
@@ -488,11 +499,25 @@ fun AddTransactionModal(
                             .padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        categories.forEach { cat ->
+                        // Dynamically use viewModel's state or fallback list
+                        val categoryItems = viewModel.categoryItems.collectAsState().value
+                        val dynamicCategories = categoryItems.map { it.category }.distinct().ifEmpty { categories }
+                        
+                        dynamicCategories.forEach { cat ->
                             FilterChip(
                                 selected = selectedCategory == cat,
-                                onClick = { selectedCategory = cat },
+                                onClick = { 
+                                    selectedCategory = cat 
+                                    userModifiedCategory = true
+                                },
                                 label = { Text(cat) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = com.example.ui.finance.getCategoryIcon(cat),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                },
                                 modifier = Modifier.testTag("chip_cat_$cat")
                             )
                         }
@@ -551,7 +576,9 @@ fun FilterChip(
     selected: Boolean,
     onClick: () -> Unit,
     label: @Composable () -> Unit,
-    isDarkMode: Boolean
+    isDarkMode: Boolean,
+    modifier: Modifier = Modifier,
+    leadingIcon: (@Composable () -> Unit)? = null
 ) {
     val bg = if (selected) {
         if (isDarkMode) Color(0xFF3F4759) else MaterialTheme.colorScheme.primaryContainer
@@ -564,7 +591,7 @@ fun FilterChip(
         if (isDarkMode) Color.Gray else Color.DarkGray
     }
     Box(
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(bg)
             .border(
@@ -576,8 +603,18 @@ fun FilterChip(
             .padding(horizontal = 10.dp, vertical = 5.dp),
         contentAlignment = Alignment.Center
     ) {
-        CompositionLocalProvider(LocalContentColor provides contentColor) {
-            label()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            if (leadingIcon != null) {
+                CompositionLocalProvider(LocalContentColor provides contentColor) {
+                    leadingIcon()
+                }
+            }
+            CompositionLocalProvider(LocalContentColor provides contentColor) {
+                label()
+            }
         }
     }
 }

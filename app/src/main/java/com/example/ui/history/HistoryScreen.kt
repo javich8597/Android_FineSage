@@ -274,6 +274,15 @@ fun HistoryTab(viewModel: FinanceViewModel, labels: Map<String, String>, isDarkM
                                         selected = isSelected,
                                         onClick = { selectedCategoryFilter = cat },
                                         label = { Text(cat, fontSize = 11.sp) },
+                                        leadingIcon = if (cat != "Todos") {
+                                            {
+                                                Icon(
+                                                    imageVector = com.example.ui.finance.getCategoryIcon(cat),
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        } else null,
                                         isDarkMode = isDarkMode
                                     )
                                 }
@@ -358,6 +367,8 @@ fun TransactionHistoryItem(
     val formattedAmount = viewModel.formatCurrency(convertedAmount, selectCurrency)
     val showOriginalSymbol = tx.currency != selectCurrency
 
+    val categoryIcon = com.example.ui.finance.getCategoryIcon(tx.category)
+
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
@@ -372,15 +383,36 @@ fun TransactionHistoryItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = tx.concept,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isDarkMode) Color.White else Color.Black
-                    )
-                    Text(text = dateStr, fontSize = 11.sp, color = Color.Gray)
+                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    // Category Icon
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(if (isDarkMode) Color(0xFF2A2D32) else Color(0xFFF2F4F7)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = categoryIcon,
+                            contentDescription = tx.category,
+                            tint = if (isDarkMode) Color.White else Color.Black,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = tx.concept,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isDarkMode) Color.White else Color.Black
+                        )
+                        Text(text = dateStr, fontSize = 11.sp, color = Color.Gray)
+                    }
                 }
+
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = "${if (!isExpense && convertedAmount > 0) "+" else ""}$formattedAmount",
@@ -549,6 +581,13 @@ fun EditTransactionCategorizationModal(
                                 selected = isSelected,
                                 onClick = { selectedCategory = cat },
                                 label = { Text(cat, fontSize = 11.sp) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = com.example.ui.finance.getCategoryIcon(cat),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                },
                                 isDarkMode = isDarkMode
                             )
                         }
