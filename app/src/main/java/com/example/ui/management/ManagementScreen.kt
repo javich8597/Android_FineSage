@@ -240,6 +240,44 @@ fun ManagementTab(
 
                 Divider(color = if (isDarkMode) Color(0xFF2D3135) else Color(0xFFE5E5E5))
 
+                // Pet Style Settings Toggle Row
+                val currentPetStyle by viewModel.petStyle.collectAsState()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp)
+                ) {
+                    Text(
+                        text = if (checkedLang == "es") "Estilo de Mascota" else "Pet Style",
+                        color = if (isDarkMode) Color.White else Color.Black,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("FUTURISTIC" to (if (checkedLang == "es") "Futurista" else "Futuristic"),
+                                "TRADITIONAL" to (if (checkedLang == "es") "Tradicional" else "Traditional"),
+                                "ZEN" to "Zen").forEach { (style, label) ->
+                            Button(
+                                onClick = { viewModel.setPetStyle(style) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (currentPetStyle == style) (if (isDarkMode) Color(0xFF3F4759) else Color(0xFFE3EDF7)) else Color.Transparent,
+                                    contentColor = if (currentPetStyle == style) (if (isDarkMode) Color(0xFFD1E4FF) else Color.Black) else Color.Gray
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(32.dp).testTag("pet_style_$style")
+                            ) {
+                                Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                Divider(color = if (isDarkMode) Color(0xFF2D3135) else Color(0xFFE5E5E5))
+
                 // Base Currency Switcher Toggle Row
                 Column(
                     modifier = Modifier

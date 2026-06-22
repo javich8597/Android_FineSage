@@ -60,18 +60,25 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 
+enum class DashboardWidget {
+    HEADER, ALERTS, BALANCES, QUICK_ACTIONS, GOALS_SUMMARY, BANK_SYNC, ANOMALIES, GNN_GRAPH, MICRO_SPENDS, SIMULATOR, RECENT_TX
+}
+
 @Composable
 fun DashboardTab(
     viewModel: FinanceViewModel,
     labels: Map<String, String>,
     isDarkMode: Boolean,
-    onSyncClick: (String) -> Unit
+    onSyncClick: (String) -> Unit,
+    onNavigateToRoute: (String) -> Unit = {}
 ) {
     val txList by viewModel.transactions.collectAsState()
     val syncStatus by viewModel.syncStatus.collectAsState()
     val budgetAlert by viewModel.budgetAlert.collectAsState()
     val microSpends by viewModel.microSpends.collectAsState()
     val anomalies by viewModel.anomalies.collectAsState()
+    val goals by viewModel.goals.collectAsState()
+    val context = LocalContext.current
 
     val selectCurrency by viewModel.selectedCurrency.collectAsState()
     val liveRates by viewModel.exchangeRatesState.collectAsState()
@@ -79,6 +86,25 @@ fun DashboardTab(
     var expandedAnomalies by remember { mutableStateOf(false) }
     var expandedMicro by remember { mutableStateOf(false) }
     var expandedGNN by remember { mutableStateOf(false) }
+    var expandedGoals by remember { mutableStateOf(false) }
+
+    var showCustomizeDialog by remember { mutableStateOf(false) }
+
+    // Persistent state would be better, but taking a shortcut for this prototype
+    val widgetOrder = remember { mutableStateListOf(
+        DashboardWidget.HEADER,
+        DashboardWidget.ALERTS,
+        DashboardWidget.BALANCES,
+        DashboardWidget.QUICK_ACTIONS,
+        DashboardWidget.GOALS_SUMMARY,
+        DashboardWidget.BANK_SYNC,
+        DashboardWidget.ANOMALIES,
+        DashboardWidget.GNN_GRAPH,
+        DashboardWidget.MICRO_SPENDS,
+        DashboardWidget.SIMULATOR,
+        DashboardWidget.RECENT_TX
+    ) }
+    val hiddenWidgets = remember { mutableStateListOf<DashboardWidget>() }
 
     val totalSpent = remember(txList, selectCurrency, liveRates) {
         txList.filter { it.amount < 0 }
@@ -111,6 +137,7 @@ fun DashboardTab(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // App Header Brand inspired by "Sophisticated Dark"
+        if (DashboardWidget.HEADER !in hiddenWidgets) {
         item {
             Row(
                 modifier = Modifier
@@ -143,22 +170,29 @@ fun DashboardTab(
                     )
                 }
 
-                // JS Avatar Circle
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "JS",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { showCustomizeDialog = true }) {
+                        Icon(Icons.Filled.DashboardCustomize, contentDescription = "Personalizar Dashboard")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    // JS Avatar Circle
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "JS",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
+        }
         }
 
         // BUDGET PUSH NOTIFICATION ALERT
@@ -230,6 +264,7 @@ fun DashboardTab(
         }
 
         // ESTADÍSTICAS BALANCES CARD styled as the main gradient card in Sophisticated Dark
+        if (DashboardWidget.BALANCES !in hiddenWidgets) {
         item {
             Card(
                 shape = RoundedCornerShape(24.dp),
@@ -383,9 +418,32 @@ fun DashboardTab(
                 }
             }
         }
+        }
 
-        // SECCIÓN SINCRO BANCARIA REAL-TIME
-        item {
+        if (DashboardWidget.QUICK_ACTIONS !in hiddenWidgets) {
+            item {
+                QuickActionsWidget(labels, isDarkMode) { action ->
+                    Toast.makeText(context, "Action: $action", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        if (DashboardWidget.GOALS_SUMMARY !in hiddenWidgets) {
+            item {
+                GoalsSummaryWidget(
+                    goals = goals,
+                    expanded = expandedGoals,
+                    onToggleExpand = { expandedGoals = !expandedGoals },
+                    labels = labels,
+                    isDarkMode = isDarkMode,
+                    onNavigateToRoute = onNavigateToRoute
+                )
+            }
+        }
+
+        if (DashboardWidget.BANK_SYNC !in hiddenWidgets) {
+            // SECCIÓN SINCRO BANCARIA REAL-TIME
+            item {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     labels["section_sync"] ?: "",
@@ -435,9 +493,10 @@ fun DashboardTab(
                 }
             }
         }
+        }
 
         // ANOMALY INTEGRITY ZONE (HEURISTIC GRAPH NEURAL NETWORK VISUALIZATION)
-        if (anomalies.isNotEmpty()) {
+        if (DashboardWidget.ANOMALIES !in hiddenWidgets && anomalies.isNotEmpty()) {
             item {
                 Card(
                     shape = RoundedCornerShape(16.dp),
@@ -498,6 +557,7 @@ fun DashboardTab(
         }
 
         // GRAPH WAVE CANVAS SECTION styled with GNN mesh patterns
+        if (DashboardWidget.GNN_GRAPH !in hiddenWidgets) {
         item {
             Card(
                 shape = RoundedCornerShape(24.dp),
@@ -680,9 +740,10 @@ fun DashboardTab(
                 }
             }
         }
+        }
 
         // ANALISIS MICRO-GASTOS INDICATOR
-        if (microSpends.isNotEmpty()) {
+        if (DashboardWidget.MICRO_SPENDS !in hiddenWidgets && microSpends.isNotEmpty()) {
             item {
                 Card(
                     shape = RoundedCornerShape(16.dp),
@@ -732,11 +793,14 @@ fun DashboardTab(
         }
 
         // SIMULATOR ZONA
+        if (DashboardWidget.SIMULATOR !in hiddenWidgets) {
         item {
             SavingsGoalSimulator(labels = labels, isDarkMode = isDarkMode)
         }
+        }
 
         // SECCIÓN RECIENTES TRANSACTIONS
+        if (DashboardWidget.RECENT_TX !in hiddenWidgets) {
         item {
             Text(
                 labels["recent_tx"] ?: "",
@@ -760,6 +824,156 @@ fun DashboardTab(
         } else {
             items(txList) { tx ->
                 TransactionListItem(tx = tx, isDarkMode = isDarkMode, viewModel = viewModel)
+            }
+        }
+        }
+    }
+
+    if (showCustomizeDialog) {
+        AlertDialog(
+            onDismissRequest = { showCustomizeDialog = false },
+            title = { Text("Personalizar Dashboard") },
+            text = {
+                LazyColumn {
+                    items(widgetOrder.toList()) { widget ->
+                        if (widget != DashboardWidget.HEADER) {
+                            val isActive = widget !in hiddenWidgets
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        if (isActive) hiddenWidgets.add(widget)
+                                        else hiddenWidgets.remove(widget)
+                                    }
+                                    .padding(vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(widget.name.replace("_", " "))
+                                Switch(checked = isActive, onCheckedChange = null)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCustomizeDialog = false }) {
+                    Text("Cerrar")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun QuickActionsWidget(labels: Map<String, String>, isDarkMode: Boolean, onAction: (String) -> Unit = {}) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        QuickActionButton(Icons.Filled.Add, "Top Up", isDarkMode) { onAction("topup") }
+        QuickActionButton(Icons.Filled.SwapHoriz, "Transfer", isDarkMode) { onAction("transfer") }
+        QuickActionButton(Icons.Filled.AccountBalance, "Exchange", isDarkMode) { onAction("exchange") }
+        QuickActionButton(Icons.Filled.MoreHoriz, "More", isDarkMode) { onAction("more") }
+    }
+}
+
+@Composable
+fun QuickActionButton(icon: ImageVector, label: String, isDarkMode: Boolean, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(if (isDarkMode) Color(0xFF2C3136) else Color(0xFFE3E8ED)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = label, tint = if (isDarkMode) Color.White else Color.Black)
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(text = label, fontSize = 11.sp, color = if (isDarkMode) Color(0xFFC2C7CF) else Color.DarkGray)
+    }
+}
+
+@Composable
+fun GoalsSummaryWidget(
+    goals: List<BudgetGoal>,
+    expanded: Boolean,
+    onToggleExpand: () -> Unit,
+    labels: Map<String, String>,
+    isDarkMode: Boolean,
+    onNavigateToRoute: (String) -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+        modifier = Modifier.fillMaxWidth().clickable { onToggleExpand() }
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Flag, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Resumen de Objetivos",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
+            }
+            if (goals.isEmpty()) {
+                AnimatedVisibility(visible = expanded) {
+                    Text(
+                        text = "No tienes objetivos activos. ¡Crea uno en la sección Goals!",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha=0.8f),
+                        modifier = Modifier.padding(top = 10.dp)
+                    )
+                }
+            } else {
+                val totalProgress = goals.sumOf { it.savedAmount }
+                val totalTarget = goals.sumOf { it.targetAmount }
+                val progressPct = if (totalTarget > 0) (totalProgress / totalTarget).toFloat().coerceIn(0f, 1f) else 0f
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text(text = "Progreso Total", fontSize = 12.sp, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                    Text(text = "${(progressPct * 100).toInt()}%", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                }
+                LinearProgressIndicator(
+                    progress = { progressPct },
+                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha=0.2f),
+                )
+                AnimatedVisibility(visible = expanded) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                        goals.forEach { goal ->
+                            val pct = if (goal.targetAmount > 0) (goal.savedAmount / goal.targetAmount).toFloat() else 0f
+                            val isAtRisk = pct < 0.2f // Simple heuristic for risk
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clickable { onNavigateToRoute(com.example.ui.finance.Screen.Goals.route) },
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (isAtRisk) {
+                                        Icon(Icons.Filled.Warning, contentDescription = "Desviación", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                    } else {
+                                        Icon(Icons.Filled.TrendingUp, contentDescription = "Buen progreso", tint = Color(0xFF107C41), modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                    }
+                                    Text(text = goal.title, fontSize = 13.sp, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                }
+                                Text(text = "${(pct * 100).toInt()}%", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

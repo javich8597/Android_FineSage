@@ -12,33 +12,35 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val MinimalistDarkColorScheme = darkColorScheme(
-    primary = BrightCyan,
+    primary = TealAccent,
     onPrimary = DeepBlack,
-    secondary = SoftGreen,
+    secondary = GlowingPurple,
     onSecondary = DeepBlack,
-    background = DeepBlack,
-    onBackground = PureWhite,
-    surface = DarkSurface,
-    onSurface = PureWhite,
-    surfaceVariant = DarkSurfaceVariant,
+    background = MidnightBlue,
+    onBackground = Color.White,
+    surface = SurfaceDark,
+    onSurface = Color.White,
+    surfaceVariant = SurfaceVariantDark,
     onSurfaceVariant = NeutralText,
-    error = SoftRed,
-    onError = PureWhite
+    error = CoralRed,
+    onError = Color.White,
+    errorContainer = SoftRed,
+    onErrorContainer = DeepBlack
 )
 
 private val MinimalistLightColorScheme = lightColorScheme(
-    primary = DarkBlueAccent,
-    onPrimary = PureWhite,
+    primary = BluePrimaryLight,
+    onPrimary = Color.White,
     secondary = CleanGreen,
-    onSecondary = PureWhite,
-    background = PureWhite,
+    onSecondary = Color.White,
+    background = LightBackground,
     onBackground = DeepBlack,
     surface = LightSurface,
     onSurface = DeepBlack,
     surfaceVariant = LightSurfaceVariant,
     onSurfaceVariant = NeutralText,
     error = CleanRed,
-    onError = PureWhite
+    onError = Color.White
 )
 
 @Composable

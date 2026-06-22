@@ -79,6 +79,14 @@ class FinanceViewModel(context: Context) : ViewModel() {
     private val _isCoachingLoading = MutableStateFlow(false)
     val isCoachingLoading: StateFlow<Boolean> = _isCoachingLoading.asStateFlow()
 
+    // --- Pet Config ---
+    private val _petStyle = MutableStateFlow("TRADITIONAL")
+    val petStyle: StateFlow<String> = _petStyle.asStateFlow()
+
+    fun setPetStyle(style: String) {
+        _petStyle.value = style
+    }
+
     // --- Live Multi-Currency Context State ---
     private val _selectedCurrency = MutableStateFlow("EUR")
     val selectedCurrency: StateFlow<String> = _selectedCurrency.asStateFlow()
@@ -265,12 +273,12 @@ class FinanceViewModel(context: Context) : ViewModel() {
     }
 
     // --- Ask Gemini Advisor ---
-    fun askCoachingAdvisor() {
+    fun askCoachingAdvisor(timeframe: String = "weekly") {
         viewModelScope.launch {
             _isCoachingLoading.value = true
             _coachingResponse.value = if (_language.value == "es") "Consultando a FinSage AI Coach con tus gastos consolidados..." else "Analyzing spend logs. Consulting Gemini AI Financial Coach..."
             try {
-                val response = GeminiApiClient.getFinancialCoaching(transactions.value, goals.value)
+                val response = GeminiApiClient.getFinancialCoaching(transactions.value, goals.value, timeframe)
                 _coachingResponse.value = response
             } catch (e: Exception) {
                 _coachingResponse.value = "Error al conectar con la IA de FinSage: ${e.localizedMessage}"
@@ -378,6 +386,25 @@ class FinanceViewModel(context: Context) : ViewModel() {
                 isAutoCalculated = true
             )
             repository.insertGoal(newGoal)
+        }
+    }
+
+    fun addFundsToGoal(goal: BudgetGoal, amount: Double) {
+        viewModelScope.launch {
+            val newAmount = goal.savedAmount + amount
+            repository.updateGoalSavings(goal.id, newAmount)
+        }
+    }
+
+    fun updateGoal(goal: BudgetGoal) {
+        viewModelScope.launch {
+            repository.insertGoal(goal)
+        }
+    }
+
+    fun deleteGoal(goal: BudgetGoal) {
+        viewModelScope.launch {
+            repository.deleteGoal(goal)
         }
     }
 

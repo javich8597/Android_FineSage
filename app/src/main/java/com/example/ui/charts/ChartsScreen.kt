@@ -146,7 +146,7 @@ fun ChartsTab(
         AnimatedContent(
             targetState = selectedSection,
             transitionSpec = {
-                fadeIn(animationSpec = tween(250)) with fadeOut(animationSpec = tween(200))
+                fadeIn(animationSpec = tween(250)) togetherWith fadeOut(animationSpec = tween(200))
             },
             modifier = Modifier.fillMaxWidth()
         ) { target ->

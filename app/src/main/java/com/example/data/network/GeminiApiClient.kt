@@ -36,7 +36,8 @@ object GeminiApiClient {
      */
     suspend fun getFinancialCoaching(
         transactions: List<Transaction>,
-        goals: List<BudgetGoal>
+        goals: List<BudgetGoal>,
+        timeframe: String = "weekly"
     ): String = withContext(Dispatchers.IO) {
         val apiKey = BuildConfig.GEMINI_API_KEY
         if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
@@ -44,7 +45,7 @@ object GeminiApiClient {
             return@withContext getLocalSmartHeuristics(transactions, goals)
         }
 
-        val prompt = buildCoachingPrompt(transactions, goals)
+        val prompt = buildCoachingPrompt(transactions, goals, timeframe)
         val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/$MODEL_NAME:generateContent?key=$apiKey"
 
         try {
@@ -63,7 +64,7 @@ object GeminiApiClient {
                 put("systemInstruction", JSONObject().apply {
                     put("parts", JSONArray().apply {
                         put(JSONObject().apply {
-                            put("text", "Eres FinSage AI, un coach financiero de nivel premium con un tono profesional, motivador y sumamente inteligente. Analizas patrones de gasto y ofreces recomendaciones accionables directas de ahorro.")
+                            put("text", "Eres mi mascota virtual y coach financiero. Háblame en primera persona. Sé EXTREMADAMENTE BREVE y responde SOLO con un objeto JSON válido con dos campos: 'diagnosis' (tu análisis en 20 palabras máximo) y 'mission' (un reto específico de 1 línea). No añadas formato markdown ```json.")
                         })
                     })
                 })
@@ -104,7 +105,7 @@ object GeminiApiClient {
         }
     }
 
-    private fun buildCoachingPrompt(transactions: List<Transaction>, goals: List<BudgetGoal>): String {
+    private fun buildCoachingPrompt(transactions: List<Transaction>, goals: List<BudgetGoal>, timeframe: String): String {
         val txString = StringBuilder()
         transactions.take(15).forEach { tx ->
             txString.append("- ${tx.bankName}: ${tx.concept} (${tx.category}) de ${tx.amount} ${tx.currency} (Anomalía: ${tx.isAnomaly}, Micro-gasto: ${tx.isMicroSpend})\n")
@@ -115,31 +116,22 @@ object GeminiApiClient {
             goalString.append("- Meta: ${g.title}, Target: ${g.targetAmount} EUR, Guardado: ${g.savedAmount} EUR, Fecha: ${g.targetDate}\n")
         }
 
+        val timeframeText = when (timeframe) {
+            "daily" -> "el día de hoy"
+            "weekly" -> "la última semana"
+            "monthly" -> "el último mes"
+            else -> "recientemente"
+        }
+
         return """
-            Act as an elite strategic financial planner. I need you to audit my cash flows and output an executive financial brief.
-            Only output structured sections with short unformatted headings, followed by precise actionable paragraphs. DO NOT use markdown bold/italic characters, just clean text. DO NOT use emojis.
-            
-            My recent transactions (via secure sync):
+            Analiza mis datos financieros de $timeframeText. Responde con un resumen super breve, sin listas ni viñetas, parecido a un bocadillo de chat de un videojuego.
+            No superes las 20-30 palabras. Dame un diagnóstico rápido y un reto de 1 línea para $timeframeText. Todo en Español.
+
+            Gastos recientes de ejemplo:
             $txString
             
-            My active milestones:
+            Mis metas actuales:
             $goalString
-            
-            Format your response STRICTLY as follows (make sure to double newline between every heading and paragraph):
-
-            PATRONES Y FUGAS DE CAPITAL
-            Analyze my micro-spend patterns and identify cash leaks (recurrent unnecessary spending). Provide a concise explanation.
-
-            DETECCIÓN DE ANOMALÍAS
-            Point out what transactions look anomalous and why they are flagged, or state that risk is low.
-
-            PROYECCIÓN DE METAS
-            State precise steps and weekly quantitative adjustments needed to hit my reported targets.
-
-            OPTIMIZACIÓN ACCIONABLE
-            Provide 3 precise optimization tips specific to the categories of my spending.
-
-            Please provide the entire report ONLY in Spanish. Keep the tone professional, objective, and analytical, avoiding casual language.
         """.trimIndent()
     }
 
@@ -220,54 +212,64 @@ object GeminiApiClient {
         }
     }
 
+    suspend fun generatePetImage(prompt: String): String? = withContext(Dispatchers.IO) {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
+            Log.w(TAG, "Gemini API key is not configured for Images.")
+            return@withContext null
+        }
+        val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=\$apiKey"
+        try {
+            val requestBodyJson = JSONObject().apply {
+                put("contents", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("parts", JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("text", prompt)
+                            })
+                        })
+                    })
+                })
+                put("generationConfig", JSONObject().apply {
+                    put("responseModalities", JSONArray().apply {
+                        put("IMAGE")
+                    })
+                    put("imageConfig", JSONObject().apply {
+                        put("aspectRatio", "1:1")
+                        put("imageSize", "1K")
+                    })
+                })
+            }
+            val mediaType = "application/json; charset=utf-8".toMediaType()
+            val requestBody = requestBodyJson.toString().toRequestBody(mediaType)
+            val request = Request.Builder().url(endpointUrl).post(requestBody).build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext null
+                val responseJson = JSONObject(response.body?.string() ?: "")
+                val inlineData = responseJson.optJSONArray("candidates")
+                    ?.optJSONObject(0)
+                    ?.optJSONObject("content")
+                    ?.optJSONArray("parts")
+                    ?.optJSONObject(0)
+                    ?.optJSONObject("inlineData")
+                return@withContext inlineData?.optString("data")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception calling Gemini Image API: \${e.message}", e)
+            return@withContext null
+        }
+    }
+
     /**
      * Intelligent dynamic fallback engine (Heuristics modeled on GNN/Anomaly predictions)
      * if Gemini API Keys are missing at compile time or fail to fetch.
      */
     private fun getLocalSmartHeuristics(transactions: List<Transaction>, goals: List<BudgetGoal>): String {
-        val totalSpent = transactions.filter { it.amount < 0 }.sumOf { it.amount }
-        val incomes = transactions.filter { it.amount > 0 }.sumOf { it.amount }
-        val microSpends = transactions.filter { it.isMicroSpend }
-        val microTotals = microSpends.sumOf { it.amount }
-        val anomalies = transactions.filter { it.isAnomaly }
-
         return """
-            🌟 PROYECTO LOCAL - REPORTING INTELIGENTE FINSAGE LOCAL
-            
-            [ESP] 🇪🇸
-            1. Analisis de Hábitos:
-               - Tu volumen total de egresos es de ${"%.2f".format(totalSpent)} EUR frente a unos ingresos de +${"%.2f".format(incomes)} EUR.
-               - Detectamos ${microSpends.size} micro-gastos acumulados (comercio recurrente, suscripciones menores). Impacto: ${"%.2f".format(microTotals)} EUR. Esto representa un goteo del ${(if(incomes > 0) "%.1f".format((microTotals / totalSpent)*100) else "12.5")}% de tus gastos totales. ¡Presta atención a las suscripciones de streaming inactivas!
-            
-            2. Alertas de Anomalía:
-               ${if(anomalies.isNotEmpty()) "- Alerta SOC: Encontrada anomalía de transacción en '${anomalies.first().concept}'. Explicación: El gasto supera sustancialmente tu mediana histórica para la categoría '${anomalies.first().category}' en una ventana de 30 días." 
-               else "- No se detectan anomalías extremas hoy. Tu nivel de riesgo de fraude actual es BAJO."}
-            
-            3. Progresión hacia tus Metas Financieras:
-               ${goals.map { "- Para cumplir tu meta '${it.title}' al ${it.targetDate}, te sugerimos aportar mensualmente un estimado de ${"%.2f".format((it.targetAmount - it.savedAmount) / 6.0)} EUR." }.joinToString("\n   ")}
-               
-            4. 🚀 Consejos de Ahorro Clave:
-               - Reduzca los micro-gastos: Cancela membresías hormiga de Ocio que no hayas consultado en 15 días.
-               - Invierte el excedente: El saldo disponible genera más interés si lo desvías a carteras de bajo riesgo en TradeRepublic.
-               - Configura Alertas Preventivas: Activa la notificación inteligente de FinSage ante compras mayores de 100 EUR.
-               
-            -------------------------------------------------
-            
-            [ENG] 🇬🇧
-            1. Habit Analysis:
-               - Total spending is ${"%.2f".format(totalSpent)} EUR against income of +${"%.2f".format(incomes)} EUR.
-               - We detected ${microSpends.size} micro-spends totaling ${"%.2f".format(microTotals)} EUR. Keep an eye on automatic streaming platforms you rarely view!
-            
-            2. Anomaly Alerts:
-               ${if(anomalies.isNotEmpty()) "- SOC Alert: Spotted transaction anomaly in '${anomalies.first().concept}'. Explanation: Peak spending exceeds regular 30-day medians for '${anomalies.first().category}' commercial profiles." 
-               else "- No critical transaction anomalies detected today. Your active fraud-risk level is: SECURE."}
-            
-            3. Saving Goals Plan:
-               ${goals.map { "- To achieve '${it.title}' by ${it.targetDate}, we advise a monthly contribution of approx. ${"%.2f".format((it.targetAmount - it.savedAmount) / 6.0)} EUR." }.joinToString("\n   ")}
-               
-            4. 🚀 Premium Financial Tips:
-               - Cancel dormant subscriptions immediately to stop the pocket leak.
-               - Setup pre-purchase alerts on FinSage: think for 24 hours before spending above 100 EUR.
+            {
+              "diagnosis": "Gastos bajo control, pero tienes varios gastos en pequeñas compras. Tu riesgo de anomalías es bajo.",
+              "mission": "Evita gastos innecesarios de menos de 10€ hoy."
+            }
         """.trimIndent()
     }
 }

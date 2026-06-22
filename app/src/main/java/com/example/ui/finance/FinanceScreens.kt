@@ -107,7 +107,7 @@ fun FinanceAppScreen(viewModel: FinanceViewModel) {
             .testTag("main_scaffold"),
         floatingActionButtonPosition = FabPosition.Center,
         bottomBar = {
-            if (isUserAuthenticated) {
+            if (isUserAuthenticated && (!isBiometricsEnabled || appUnlockedViaBiometrics)) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -122,7 +122,7 @@ fun FinanceAppScreen(viewModel: FinanceViewModel) {
                     ) {
                         val navigateToRoute: (String) -> Unit = { route ->
                             navController.navigate(route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
+                                popUpTo(Screen.Dashboard.route) {
                                     saveState = true
                                 }
                                 launchSingleTop = true
@@ -229,7 +229,7 @@ fun FinanceAppScreen(viewModel: FinanceViewModel) {
             }
         },
         floatingActionButton = {
-            if (isUserAuthenticated && currentRoute == Screen.Dashboard.route) {
+            if (isUserAuthenticated && (!isBiometricsEnabled || appUnlockedViaBiometrics) && currentRoute == Screen.Dashboard.route) {
                 Box(
                     modifier = Modifier
                         .offset(y = 52.dp)
@@ -290,7 +290,8 @@ fun FinanceAppScreen(viewModel: FinanceViewModel) {
                             viewModel = viewModel,
                             labels = labels,
                             isDarkMode = isDarkMode,
-                            onSyncClick = { bank -> viewModel.synchronizeBank(bank) }
+                            onSyncClick = { bank -> viewModel.synchronizeBank(bank) },
+                            onNavigateToRoute = { route -> navController.navigate(route) }
                         )
                     }
                     composable(Screen.Coach.route) {

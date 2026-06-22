@@ -67,6 +67,49 @@ fun GoalsTab(
     onAddGoalClick: () -> Unit
 ) {
     val goalsList by viewModel.goals.collectAsState()
+    var selectedGoalForFunds by remember { mutableStateOf<BudgetGoal?>(null) }
+    var selectedGoalForOptions by remember { mutableStateOf<BudgetGoal?>(null) }
+
+    if (selectedGoalForFunds != null) {
+        AddFundsModal(
+            goal = selectedGoalForFunds!!,
+            onDismiss = { selectedGoalForFunds = null },
+            onConfirm = { amount ->
+                viewModel.addFundsToGoal(selectedGoalForFunds!!, amount)
+                selectedGoalForFunds = null
+            }
+        )
+    }
+
+    if (selectedGoalForOptions != null) {
+        Dialog(onDismissRequest = { selectedGoalForOptions = null }) {
+            Card(shape = RoundedCornerShape(16.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Opciones del Objetivo", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            selectedGoalForFunds = selectedGoalForOptions
+                            selectedGoalForOptions = null
+                        }
+                    ) {
+                        Text("Añadir Fondos")
+                    }
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        onClick = {
+                            viewModel.deleteGoal(selectedGoalForOptions!!)
+                            selectedGoalForOptions = null
+                        }
+                    ) {
+                        Text("Eliminar Objetivo")
+                    }
+                }
+            }
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -121,14 +164,18 @@ fun GoalsTab(
             }
         } else {
             items(goalsList) { goal ->
-                GoalListItem(goal = goal, isDarkMode = isDarkMode)
+                GoalListItem(
+                    goal = goal,
+                    isDarkMode = isDarkMode,
+                    onClick = { selectedGoalForOptions = goal }
+                )
             }
         }
     }
 }
 
 @Composable
-fun GoalListItem(goal: BudgetGoal, isDarkMode: Boolean) {
+fun GoalListItem(goal: BudgetGoal, isDarkMode: Boolean, onClick: () -> Unit = {}) {
     val progress = (goal.savedAmount / goal.targetAmount).coerceIn(0.0, 1.0).toFloat()
 
     Card(
@@ -137,7 +184,7 @@ fun GoalListItem(goal: BudgetGoal, isDarkMode: Boolean) {
             containerColor = if (isDarkMode) Color(0xFF1A1C1E) else Color.White
         ),
         border = if (isDarkMode) BorderStroke(1.dp, Color(0xFF2D3135)) else null,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(
@@ -210,11 +257,91 @@ fun GoalListItem(goal: BudgetGoal, isDarkMode: Boolean) {
                     color = if (isDarkMode) Color.White else Color.Black
                 )
             }
+
+            if (goal.targetAmount > goal.savedAmount) {
+                Spacer(modifier = Modifier.height(10.dp))
+                var neededPerMonth: Double? = null
+                try {
+                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    val targetDate = sdf.parse(goal.targetDate)
+                    if (targetDate != null) {
+                        val diffInMillis = targetDate.time - System.currentTimeMillis()
+                        val diffInMonths = (diffInMillis / (1000L * 60 * 60 * 24 * 30)).coerceAtLeast(1)
+                        neededPerMonth = (goal.targetAmount - goal.savedAmount) / diffInMonths
+                    }
+                } catch (e: Exception) {
+                    // Ignore date parsing errors
+                }
+                
+                if (neededPerMonth != null) {
+                    Text(
+                        "Necesitas ahorrar aprox. ${"%.2f".format(neededPerMonth)} €/mes para llegar a tiempo.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontStyle = FontStyle.Italic
+                    )
+                }
+            }
         }
     }
 }
 
 // --- TAB 4: MANAGEMENT AND EXPORT HUB ---
+@Composable
+fun AddFundsModal(
+    goal: BudgetGoal,
+    onDismiss: () -> Unit,
+    onConfirm: (amount: Double) -> Unit
+) {
+    var amountStr by remember { mutableStateOf(TextFieldValue("")) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(6.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text("Añadir Fondos a ${goal.title}", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+
+                OutlinedTextField(
+                    value = amountStr,
+                    onValueChange = { amountStr = it },
+                    label = { Text("Cantidad a añadir (€)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancelar")
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Button(
+                        onClick = {
+                            val amt = amountStr.text.toDoubleOrNull() ?: 0.0
+                            if (amt > 0) {
+                                onConfirm(amt)
+                            }
+                        }
+                    ) {
+                        Text("Añadir")
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun AddGoalModal(
     labels: Map<String, String>,

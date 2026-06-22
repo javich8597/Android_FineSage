@@ -29,6 +29,14 @@ class FinanceRepository(private val financeDao: FinanceDao) {
         financeDao.insertGoal(goal)
     }
 
+    suspend fun updateGoalSavings(id: Int, savedAmount: Double) {
+        financeDao.updateGoalSavings(id, savedAmount)
+    }
+
+    suspend fun deleteGoal(goal: BudgetGoal) {
+        financeDao.deleteGoal(goal)
+    }
+
     suspend fun insertCategoryItem(item: CategoryItem) {
         financeDao.insertCategoryItem(item)
     }

@@ -2,22 +2,27 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Premium Minimalist Palette (Fintech style)
+// Premium Fintech Palette
 // Dark Theme
-val DeepBlack = Color(0xFF000000)
-val DarkSurface = Color(0xFF111111)
-val DarkSurfaceVariant = Color(0xFF1A1A1A)
-val BrightCyan = Color(0xFF00FFD1) // Vibrant accent
-val SoftGreen = Color(0xFF00FFA3) // Success
-val SoftRed = Color(0xFFFF3366) // Error/Anomaly
+val MidnightBlue = Color(0xFF0F172A)
+val SurfaceDark = Color(0xFF1E293B)
+val SurfaceVariantDark = Color(0xFF334155)
+val TealAccent = Color(0xFF14B8A6)
+val SoftTeal = Color(0xFF5EEAD4)
+val CoralRed = Color(0xFFF43F5E)
+val SoftRed = Color(0xFFFDA4AF)
+val SoftGold = Color(0xFFF59E0B)
+val GlowingPurple = Color(0xFF8B5CF6)
+val DeepBlack = Color(0xFF050B14)
 
-// Light Theme
-val PureWhite = Color(0xFFFFFFFF)
-val LightSurface = Color(0xFFF7F7F7)
-val LightSurfaceVariant = Color(0xFFEDEDED)
-val DarkBlueAccent = Color(0xFF0D1B2A)
-val CleanGreen = Color(0xFF00C853)
-val CleanRed = Color(0xFFD50000)
+// Light Theme (Optional/Fallback)
+val LightBackground = Color(0xFFF8FAFC)
+val LightSurface = Color(0xFFFFFFFF)
+val LightSurfaceVariant = Color(0xFFF1F5F9)
+val BluePrimaryLight = Color(0xFF2563EB)
+val CleanGreen = Color(0xFF10B981)
+val CleanRed = Color(0xFFEF4444)
 
-val NeutralText = Color(0xFF888888)
+val NeutralText = Color(0xFF94A3B8)
+
 

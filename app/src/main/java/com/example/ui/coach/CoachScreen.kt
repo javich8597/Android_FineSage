@@ -1,21 +1,19 @@
 package com.example.ui.coach
 
-import com.example.ui.shared.*
-import com.example.ui.finance.FinanceViewModel
-
-
-import android.content.Context
-import android.widget.Toast
+import com.example.data.model.Transaction
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -24,394 +22,550 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import com.example.data.model.BudgetGoal
-import com.example.data.model.Transaction
-import com.example.data.model.CategoryItem
-import com.example.data.model.LearnedRule
+import com.example.ui.finance.FinanceViewModel
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.*
-
 
 @Composable
-fun CoachTab(
-    viewModel: FinanceViewModel,
-    labels: Map<String, String>,
-    isDarkMode: Boolean
-) {
-    val responseText by viewModel.coachingResponse.collectAsState()
-    val isLoading by viewModel.isCoachingLoading.collectAsState()
-    val selectCurrency by viewModel.selectedCurrency.collectAsState()
-    val currentLang by viewModel.language.collectAsState()
-    val isSpan = currentLang == "es"
-    
+fun CoachTab(viewModel: FinanceViewModel, labels: Map<String, String>, isDarkMode: Boolean) {
     val txState by viewModel.transactions.collectAsState()
+    val goalsState by viewModel.goals.collectAsState()
+    val petStyle by viewModel.petStyle.collectAsState()
+    val isSpan = labels["app_tag"] == "COACH CON INTELIGENCIA ARTIFICIAL"
+    
+    var isPetExpanded by remember { mutableStateOf(false) }
 
-    val beerAndLeisureTotal = remember(txState, selectCurrency) {
-        txState.filter { tx ->
-            tx.amount < 0 && (
-                tx.concept.contains("cerveza", ignoreCase = true) ||
-                tx.concept.contains("bar", ignoreCase = true) ||
-                tx.concept.contains("pub", ignoreCase = true) ||
-                tx.category.contains("Ocio", ignoreCase = true) ||
-                tx.category.contains("Restaurante", ignoreCase = true)
+    AnimatedContent(
+        targetState = isPetExpanded,
+        transitionSpec = {
+            slideInVertically(initialOffsetY = { it }, animationSpec = tween(400)) togetherWith
+            slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400))
+        },
+        label = "PetExpansion"
+    ) { expanded ->
+        if (expanded) {
+            InteractivePetScreen(
+                viewModel = viewModel,
+                isSpan = isSpan,
+                isDarkMode = isDarkMode,
+                transactions = txState,
+                onClose = { isPetExpanded = false }
             )
-        }.sumOf { viewModel.convertCurrency(-it.amount, it.currency, selectCurrency) }
+        } else {
+            CoachDashboard(
+                viewModel = viewModel,
+                isSpan = isSpan,
+                isDarkMode = isDarkMode,
+                transactions = txState,
+                goals = goalsState,
+                petStyle = petStyle,
+                onExpandPet = { isPetExpanded = true }
+            )
+        }
     }
+}
 
-    val subscriptionTotal = remember(txState, selectCurrency) {
-        txState.filter { tx ->
-            tx.amount < 0 && tx.category.contains("Suscripci", ignoreCase = true)
-        }.sumOf { viewModel.convertCurrency(-it.amount, it.currency, selectCurrency) }
-    }
+@Composable
+fun CoachDashboard(
+    viewModel: FinanceViewModel,
+    isSpan: Boolean,
+    isDarkMode: Boolean,
+    transactions: List<Transaction>,
+    goals: List<com.example.data.model.BudgetGoal>,
+    petStyle: String,
+    onExpandPet: () -> Unit
+) {
+    var interactionOneSolved by remember { mutableStateOf(false) }
+    var interactionTwoSolved by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+            .padding(horizontal = 16.dp)
+            .padding(top = 16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // AI Advisor Header
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(if (isDarkMode) Color(0xFF1B2B41) else Color(0xFFE5F1FD)),
-                contentAlignment = Alignment.Center
+        // --- HERO: THE VIRTUAL PET! ---
+        PetStatusSection(isSpan, isDarkMode, transactions, goals, petStyle, onClick = onExpandPet)
+
+        // --- GEMINI AI PERSONALIZED MISSION & AUDIT ---
+        GeminiAuditCard(isSpan, isDarkMode, viewModel)
+
+        // --- INTERACTIVE BITE-SIZED INSIGHTS ---
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(
+                text = if (isSpan) "Revisión rápida de hábitos" else "Quick Habit Check",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
             ) {
-                Icon(
-                    Icons.Filled.AutoAwesome,
-                    contentDescription = null,
-                    tint = if (isDarkMode) Color(0xFF73C5FF) else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
+                if (!interactionOneSolved) {
+                    item {
+                        InteractiveInsightCard(
+                            isSpan = isSpan,
+                            isDarkMode = isDarkMode,
+                            icon = Icons.Filled.DirectionsCar,
+                            iconTint = MaterialTheme.colorScheme.error,
+                            title = if (isSpan) "Aumento Transporte" else "Spike in Transport",
+                            message = if (isSpan) "Tu gasto en Uber subió un 25% esta semana. ¿Quieres que fijemos un límite de 30€?" 
+                                      else "Your Uber spending is up 25% this week. Want to set a 30€ limit?",
+                            primaryAction = if (isSpan) "Sí, fijar límite" else "Yes, set limit",
+                            secondaryAction = if (isSpan) "No, estoy bien" else "No, I'm okay",
+                            onPrimary = { interactionOneSolved = true },
+                            onSecondary = { interactionOneSolved = true }
+                        )
+                    }
+                }
+                
+                if (!interactionTwoSolved) {
+                    item {
+                        InteractiveInsightCard(
+                            isSpan = isSpan,
+                            isDarkMode = isDarkMode,
+                            icon = Icons.Filled.Restaurant,
+                            iconTint = MaterialTheme.colorScheme.secondary,
+                            title = if (isSpan) "Buen ritmo Comida" else "Good pace in Dining",
+                            message = if (isSpan) "Llevas 3 días sin gastos en restaurantes. Si sigues así, ahorrarás 45€ extra este mes." 
+                                      else "You've gone 3 days without dining out. Keep it up to save an extra 45€ this month.",
+                            primaryAction = if (isSpan) "Asignar a ahorros" else "Move to savings",
+                            secondaryAction = if (isSpan) "Dejar en cartera" else "Keep in wallet",
+                            onPrimary = { interactionTwoSolved = true },
+                            onSecondary = { interactionTwoSolved = true }
+                        )
+                    }
+                }
             }
-            Spacer(modifier = Modifier.width(12.dp))
+        }
+
+        // --- AI CONVERSATION (NOT A TRADITIONAL CHAT) ---
+        DeepAnalysisTrigger(isSpan, isDarkMode, viewModel)
+        
+        Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+@Composable
+fun PetStatusSection(isSpan: Boolean, isDarkMode: Boolean, transactions: List<Transaction>, goals: List<com.example.data.model.BudgetGoal>, petStyle: String, onClick: () -> Unit) {
+    val totalIncome = transactions.filter { it.amount > 0 }.sumOf { it.amount }
+    val totalExpense = transactions.filter { it.amount < 0 }.sumOf { it.amount }
+    // Ensure savingsRate is safely between 0.0 and 1.0 (or negative for losses)
+    val rawSavingsRate = if (totalIncome > 0) (totalIncome + totalExpense) / totalIncome else 0.0
+    val savingsRate = if (rawSavingsRate.isNaN()) 0.0 else rawSavingsRate
+
+    val totalGoalProgress = if (goals.isEmpty()) 0.0 else goals.map { if (it.targetAmount > 0) it.savedAmount / it.targetAmount else 0.0 }.average()
+    val combinedScore = (savingsRate + totalGoalProgress) / 2.0
+
+    val financialBaseMood = when {
+        combinedScore > 0.4 || savingsRate > 0.3 -> PetMood.HAPPY
+        combinedScore > 0.1 || savingsRate > 0.0 -> PetMood.IDLE
+        else -> PetMood.ANGRY
+    }
+
+    val (petEmoji, petMood, petColor) = when (petStyle) {
+        "FUTURISTIC" -> when (financialBaseMood) {
+            PetMood.HAPPY -> Triple("🌟🐉", if (isSpan) "Ciber-Dragón Legendario" else "Legendary Cyber-Dragon", Color(0xFF10B981))
+            PetMood.IDLE -> Triple("🤖🐉", if (isSpan) "Ciber-Dragón Saludable" else "Healthy Cyber-Dragon", Color(0xFFF59E0B))
+            else -> Triple("🐲🔥", if (isSpan) "Ciber-Dragón Hambriento" else "Starving Cyber-Dragon", Color(0xFFEF4444))
+        }
+        "ZEN" -> when (financialBaseMood) {
+            PetMood.HAPPY -> Triple("🌸🌳", if (isSpan) "Árbol Zen Floreciente" else "Blooming Zen Tree", Color(0xFF10B981))
+            PetMood.IDLE -> Triple("🌳", if (isSpan) "Árbol Zen Estable" else "Stable Zen Tree", Color(0xFF34D399))
+            else -> Triple("🥀", if (isSpan) "Árbol Zen Marchito" else "Wilting Zen Tree", Color(0xFFEF4444))
+        }
+        else -> when (financialBaseMood) {
+            PetMood.HAPPY -> Triple("🐷✨", if (isSpan) "Mascota Feliz" else "Happy Pet", Color(0xFFF472B6))
+            PetMood.IDLE -> Triple("🐷", if (isSpan) "Mascota Estable" else "Stable Pet", Color(0xFFFBBF24))
+            else -> Triple("🐷💢", if (isSpan) "Mascota Molesta" else "Angry Pet", Color(0xFFEF4444))
+        }
+    }
+
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDarkMode) 0.dp else 4.dp),
+        modifier = Modifier.fillMaxWidth().clickable { onClick() }
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+                // Holographic Pet Orb (3D look)
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    petColor.copy(alpha = 0.8f),
+                                    petColor.copy(alpha = 0.2f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                        .border(2.dp, petColor.copy(alpha = 0.5f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Specular highlight for 3D glassy effect
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.4f),
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.4f)
+                                    )
+                                ),
+                                shape = CircleShape
+                            )
+                    )
+                    AnimatedContent(
+                        targetState = petEmoji,
+                        transitionSpec = {
+                            scaleIn() togetherWith fadeOut()
+                        },
+                        label = "PetFaceMiniAnimation"
+                    ) { targetEmoji ->
+                        Text(targetEmoji, fontSize = 28.sp)
+                    }
+                }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
             Column {
                 Text(
-                    text = if (isSpan) "Smart Insights" else "Smart Insights",
-                    fontSize = 22.sp,
+                    text = if (isSpan) "Tu Mascota Financiera" else "Your Financial Pet",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = petMood,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                LinearProgressIndicator(
+                    progress = { 
+                        val safeProgress = if (savingsRate < 0) 0.1f else savingsRate.toFloat()
+                        if (safeProgress.isNaN()) 0f else safeProgress.coerceIn(0f, 1f) 
+                    },
+                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                    color = petColor,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (isSpan) "Tasa de ahorro: ${(savingsRate * 100).toInt()}%" else "Savings rate: ${(savingsRate * 100).toInt()}%",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun GeminiAuditCard(isSpan: Boolean, isDarkMode: Boolean, viewModel: FinanceViewModel) {
+    val coachingResponse by viewModel.coachingResponse.collectAsState()
+    val isCoachingLoading by viewModel.isCoachingLoading.collectAsState()
+    var selectedTimeframe by remember { mutableStateOf("weekly") }
+
+    val bgColor = if (isDarkMode) Color(0xFF1E293B) else Color(0xFFEFF6FF)
+    val borderColor = if (isDarkMode) Color(0xFF334155) else Color(0xFFBFDBFE)
+
+    var diagnosis by remember { mutableStateOf("") }
+    var mission by remember { mutableStateOf("") }
+    var rawText by remember { mutableStateOf("") }
+
+    // Parse JSON
+    LaunchedEffect(coachingResponse) {
+        if (coachingResponse.isNotEmpty()) {
+            try {
+                // strip markdown if it exists
+                val jsonStr = coachingResponse.replace("```json", "").replace("```", "").trim()
+                val json = org.json.JSONObject(jsonStr)
+                diagnosis = json.optString("diagnosis")
+                mission = json.optString("mission")
+                rawText = ""
+            } catch (e: Exception) {
+                diagnosis = ""
+                mission = ""
+                rawText = coachingResponse
+            }
+        } else {
+            diagnosis = ""
+            mission = ""
+            rawText = ""
+        }
+    }
+
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = bgColor),
+        border = BorderStroke(1.dp, borderColor),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Reporte Inteligente",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Timeframe Selector
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                listOf("daily" to "Diario", "weekly" to "Semanal", "monthly" to "Mensual").forEach { (key, label) ->
+                    FilterChip(
+                        selected = selectedTimeframe == key,
+                        onClick = { selectedTimeframe = key; viewModel.askCoachingAdvisor(key) },
+                        label = { Text(label, fontSize = 14.sp) },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            if (isCoachingLoading) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Analizando tus finanzas...", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else if (diagnosis.isNotEmpty() && mission.isNotEmpty()) {
+                // --- VISUAL REPORT ---
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.QueryStats, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("DIAGNÓSTICO", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(diagnosis, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface, lineHeight = 20.sp)
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Flag, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("MISIÓN", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(mission, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface, lineHeight = 20.sp)
+                    }
+                }
+            } else if (rawText.isNotEmpty()) {
+                Text(
+                    text = rawText,
+                    fontSize = 14.sp,
+                    lineHeight = 22.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            } else {
+                Text(
+                    text = "Selecciona un rango de tiempo para generar tu reporte.",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun InteractiveInsightCard(
+    isSpan: Boolean, 
+    isDarkMode: Boolean, 
+    icon: androidx.compose.ui.graphics.vector.ImageVector, 
+    iconTint: Color, 
+    title: String, 
+    message: String,
+    primaryAction: String,
+    secondaryAction: String,
+    onPrimary: () -> Unit,
+    onSecondary: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(2.dp),
+        modifier = Modifier.width(280.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(36.dp).clip(CircleShape).background(iconTint.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = message,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 18.sp,
+                minLines = 3 // Keep uniform height
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onPrimary,
+                    colors = ButtonDefaults.buttonColors(containerColor = iconTint),
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text(primaryAction, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+                OutlinedButton(
+                    onClick = onSecondary,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text(secondaryAction, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DeepAnalysisTrigger(isSpan: Boolean, isDarkMode: Boolean, viewModel: FinanceViewModel) {
+    val coroutineScope = rememberCoroutineScope()
+    var isThinking by remember { mutableStateOf(false) }
+    var aiResponse by remember { mutableStateOf("") }
+
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDarkMode) Color(0xFF2E1065) else Color(0xFFF3E8FF) // Purple tone
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = if (isSpan) "Consulta Estratégica" else "Strategic Chat",
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (isDarkMode) Color.White else Color.Black
                 )
-                Text(
-                    text = if (isSpan) "Oportunidades y patrones detectados" else "Opportunities & detected patterns",
-                    fontSize = 13.sp,
-                    color = Color.Gray
-                )
             }
-        }
-
-        // Section: Recommended Bank Offers (Visual Horizontal Scroll)
-        Column {
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = if (isSpan) "Recomendaciones para ti" else "Recommended for you",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isDarkMode) Color.White else Color.Black,
-                modifier = Modifier.padding(bottom = 12.dp)
+                text = if (isSpan) "¿Quieres profundizar en algo? Pregúntame sobre tus patrones financieros de este mes y te daré un resumen claro, no una charla interminable." 
+                       else "Want to dive deeper? Ask me about your financial patterns this month and I'll give you a clear summary, not an endless chat.",
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                color = if (isDarkMode) Color(0xFFE9D5FF) else Color(0xFF6B21A8)
             )
-            
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Feature Card 1: ING
-                OfferCard(
-                    title = if (isSpan) "ING: Llévate 200€" else "ING: Get 200€",
-                    subtitle = if (isSpan) "Domicilia tu nómina y consigue 200€ gratis en tu Cuenta Nómina." else "Direct deposit your salary and get a 200€ cash bonus.",
-                    icon = Icons.Filled.AccountBalance,
-                    iconTint = Color(0xFFFF6600),
-                    isDarkMode = isDarkMode,
-                    actionText = if (isSpan) "Ver oferta" else "View offer"
-                )
+            Spacer(modifier = Modifier.height(16.dp))
 
-                // Feature Card 2: BBVA
-                OfferCard(
-                    title = if (isSpan) "BBVA: 750€ en 6 meses" else "BBVA: 750€ in 6 months",
-                    subtitle = if (isSpan) "Plan Amigo Nómina: trae tus ingresos y recibe recompensas mensuales." else "Bring your monthly income and receive monthly cashback rewards.",
-                    icon = Icons.Filled.CardGiftcard,
-                    iconTint = Color(0xFF004481),
-                    isDarkMode = isDarkMode,
-                    actionText = if (isSpan) "Descubrir" else "Discover"
-                )
-
-                // Feature Card 3: TradeRepublic
-                OfferCard(
-                    title = if (isSpan) "Trade Republic: 2% TAE" else "Trade Republic: 2% APR",
-                    subtitle = if (isSpan) "Haz crecer tus ahorros inactivos con interés mensual garantizado." else "Grow your idle savings with guaranteed monthly interest.",
-                    icon = Icons.Filled.TrendingUp,
-                    iconTint = Color(0xFF107C41),
-                    isDarkMode = isDarkMode,
-                    actionText = if (isSpan) "Invertir" else "Invest"
-                )
-            }
-        }
-
-        // Section: Visual Pattern Detection
-        Column {
-            Text(
-                text = if (isSpan) "Patrones Detectados" else "Detected Patterns",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isDarkMode) Color.White else Color.Black,
-                modifier = Modifier.padding(bottom = 12.dp, top = 8.dp)
-            )
-
-            // Pattern Card 1: Leisure/Beer
-            if (beerAndLeisureTotal > 0) {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = if (isDarkMode) Color(0xFF4A1A1A) else Color(0xFFFFF0F0)),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFE22B43).copy(alpha = 0.2f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Filled.LocalBar, contentDescription = null, tint = Color(0xFFE22B43))
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = if (isSpan) "Gasto elevado en Bar/Ocio" else "High spending in Leisure/Bars",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isDarkMode) Color.White else Color.Black
-                            )
-                            Text(
-                                text = if (isSpan) "Has gastado ${viewModel.formatCurrency(beerAndLeisureTotal, selectCurrency)} este mes. Podrías ahorrar reduciendo salidas."
-                                else "You've spent ${viewModel.formatCurrency(beerAndLeisureTotal, selectCurrency)} this month. Consider reducing outings to save.",
-                                fontSize = 13.sp,
-                                color = if (isDarkMode) Color(0xFFFFB4BC) else Color(0xFFC02A38),
-                                lineHeight = 18.sp
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Pattern Card 2: Subscriptions
-            if (subscriptionTotal > 0) {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = if (isDarkMode) Color(0xFF2C2513) else Color(0xFFFFF8E5)),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFFFBB28).copy(alpha = 0.2f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Filled.Subscriptions, contentDescription = null, tint = Color(0xFFFFBB28))
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = if (isSpan) "Servicios Recurrentes" else "Recurring Services",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isDarkMode) Color.White else Color.Black
-                            )
-                            Text(
-                                text = if (isSpan) "Tus suscripciones suman ${viewModel.formatCurrency(subscriptionTotal, selectCurrency)}. ¿Estás usando todos estos servicios?"
-                                else "Your subscriptions sum up to ${viewModel.formatCurrency(subscriptionTotal, selectCurrency)}. Are you using all of them?",
-                                fontSize = 13.sp,
-                                color = if (isDarkMode) Color(0xFFFFD57B) else Color(0xFF9E7200),
-                                lineHeight = 18.sp
-                            )
-                        }
-                    }
-                }
-            }
-            
-            // Empty pattern fallback if nothing matched
-            if(beerAndLeisureTotal == 0.0 && subscriptionTotal == 0.0){
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = if (isDarkMode) Color(0xFF131619) else Color(0xFFF5F7FA)),
-                    border = BorderStroke(1.dp, if (isDarkMode) Color(0xFF2A2E33) else Color(0xFFE2E8ED)),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF00C49F), modifier = Modifier.size(32.dp))
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = if (isSpan) "Tus gastos están bajo control. ¡Buen trabajo!" else "Your spendings are healthy. Great job!",
-                            fontSize = 14.sp,
-                            color = if (isDarkMode) Color.White else Color.Black
-                        )
-                    }
-                }
-            }
-        }
-
-        Divider(color = if (isDarkMode) Color(0xFF2D3135) else Color(0xFFECEFF1), modifier = Modifier.padding(vertical = 8.dp))
-
-        // AI Deep Analysis Request (The prompt part)
-        Card(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isDarkMode) Color(0xFF131619) else Color(0xFFF5F7FA)
-            ),
-            border = if (isDarkMode) BorderStroke(1.dp, Color(0xFF23272B)) else null,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Psychology, contentDescription = null, tint = Color(0xFF8884D8))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (isSpan) "Análisis Avanzado con IA" else "Deep AI Analysis",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isDarkMode) Color.White else Color.Black
-                    )
-                }
-
-                Text(
-                    text = if (isSpan) "Nuestra inteligencia artificial puede analizar todas tus transacciones a fondo y crear un informe ejecutivo personalizado."
-                    else "Our AI can deeply analyze all your recent transactions to create a personalized executive report.",
-                    fontSize = 13.sp,
-                    color = Color.Gray,
-                    lineHeight = 18.sp
-                )
-
-                // Action Button
-                Button(
-                    onClick = { viewModel.askCoachingAdvisor() },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isDarkMode) Color(0xFF8884D8) else Color(0xFF673AB7),
-                        contentColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(12.dp),
+            if (aiResponse.isNotEmpty()) {
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("ask_ai_coach_button")
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isDarkMode) Color(0xFF1E1B4B) else Color.White)
+                        .padding(16.dp)
                 ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(if (isSpan) "Analizando..." else "Analyzing...", fontWeight = FontWeight.Bold)
-                    } else {
-                        Icon(Icons.Filled.Insights, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (isSpan) "Generar Informe" else "Generate Report", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    }
+                    Text(
+                        text = aiResponse, 
+                        fontSize = 14.sp, 
+                        color = MaterialTheme.colorScheme.onSurface,
+                        lineHeight = 22.sp
+                    )
                 }
+                Spacer(modifier = Modifier.height(12.dp))
             }
-        }
 
-        // Response Rendering Area
-        if (responseText.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                // Render paragraphs beautifully
-                val paragraphs = responseText.split("\n\n").filter { it.isNotBlank() }
-                paragraphs.forEachIndexed { index, para ->
-                    val isHeading = para.length < 50 && (para.endsWith(":") || para.startsWith("#") || para.all { it.isUpperCase() || it.isWhitespace() })
-                    val cleanText = para.replace(Regex("^#+\\s*"), "").replace("**", "")
+            // Mock Input Field
+            var query by remember { mutableStateOf("") }
 
-                    if (isHeading) {
-                        Text(
-                            text = cleanText,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isDarkMode) Color.White else Color.Black,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-                        )
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = { 
+                    Text(
+                        if (isSpan) "¿Cómo puedo optimizar mi pago de impuestos?" else "How can I optimize my tax payments?",
+                        fontSize = 13.sp
+                    ) 
+                },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(28.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.secondary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.secondary.copy(alpha=0.3f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                ),
+                trailingIcon = {
+                    if (isThinking) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.secondary, strokeWidth = 2.dp)
                     } else {
-                        Card(
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isDarkMode) Color(0xFF15181A) else Color.White
-                            ),
-                            border = if (isDarkMode) BorderStroke(1.dp, Color(0xFF202428)) else BorderStroke(1.dp, Color(0xFFE5E7EB)),
-                            modifier = Modifier.fillMaxWidth()
+                        Box(
+                            modifier = Modifier
+                                .padding(end = 6.dp)
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.secondary)
+                                .clickable {
+                                    if(query.isNotEmpty()) {
+                                        isThinking = true
+                                        // Simulate AI network call to a real AI / Gemini logic
+                                        coroutineScope.launch {
+                                            viewModel.askCoachingAdvisor() // using the existing one
+                                            kotlinx.coroutines.delay(2000)
+                                            aiResponse = if (isSpan) "He analizado tus datos: \n1. Tienes 4 suscripciones que apenas usas.\n2. Tu fondo de emergencia podría crecer más rápido en una cuenta remunerada (Trade Republic da un 2%).\n\nCambiar estas dos cosas mejorará tu salud financiera un 15% este año."
+                                                         else "I've analyzed your data:\n1. You have 4 barely used subscriptions.\n2. Your emergency fund could grow faster in a high-yield account (Trade Republic offers 2%).\n\nAdjusting these two will improve your financial health by 15% this year."
+                                            isThinking = false
+                                            query = ""
+                                        }
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                val icon = when (index % 3) {
-                                    0 -> Icons.Filled.LightbulbCircle
-                                    1 -> Icons.Filled.TrendingUp
-                                    else -> Icons.Filled.VerifiedUser
-                                }
-                                val iconColor = when (index % 3) {
-                                    0 -> Color(0xFFFFBB28)
-                                    1 -> Color(0xFF00C49F)
-                                    else -> Color(0xFF0088FE)
-                                }
-                                
-                                Icon(
-                                    icon,
-                                    contentDescription = null,
-                                    tint = iconColor,
-                                    modifier = Modifier.size(24.dp).padding(top = 2.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = cleanText,
-                                    fontSize = 14.sp,
-                                    color = if (isDarkMode) Color(0xFFD0D5DD) else Color(0xFF475467),
-                                    lineHeight = 22.sp,
-                                    fontFamily = FontFamily.SansSerif,
-                                    textAlign = TextAlign.Justify
-                                )
-                            }
+                            Icon(Icons.Filled.ArrowUpward, contentDescription = "Send", tint = Color.White)
                         }
                     }
                 }
-            }
+            )
         }
-        
-        Spacer(modifier = Modifier.height(24.dp))
     }
 }
