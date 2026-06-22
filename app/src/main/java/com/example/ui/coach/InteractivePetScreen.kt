@@ -46,6 +46,13 @@ import com.example.data.network.GeminiApiClient
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+
 enum class PetType { PIG, CAT, DOG, DRAGON_FUTURISTIC, ZEN_TREE }
 enum class PetMood { IDLE, PETTING, HAPPY, ANGRY }
 
@@ -227,9 +234,9 @@ fun InteractivePetScreen(
             modifier = Modifier.padding(top = 8.dp)
         )
 
-        // --- 1. 3D PET IN THE MIDDLE ---
+        // --- 1. 2D CANVAS PET IN THE MIDDLE ---
         AnimatedLivingPet(
-            petStyle = petStyle, 
+            petType = currentPetType, 
             petMood = currentMood, 
             mainColor = colorPrimary,
             modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -316,486 +323,311 @@ fun InteractivePetScreen(
     }
 }
 
-@android.annotation.SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun AnimatedLivingPet(
-    petStyle: String, 
+    petType: PetType, 
     petMood: PetMood, 
     mainColor: Color, 
     modifier: Modifier = Modifier.fillMaxSize(),
     onInteractStart: () -> Unit,
     onInteractEnd: () -> Unit
 ) {
-    val context = LocalContext.current
-    var isLoaded by remember { mutableStateOf(false) }
+    val infiniteTransition = rememberInfiniteTransition(label = "pet")
+    
+    val breathingScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (petMood == PetMood.PETTING) 400 else 1200, easing = EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "breathe"
+    )
 
-    val htmlContent = remember {
-        """
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-        <style>
-            body { margin: 0; overflow: hidden; background-color: transparent; }
-            canvas { display: block; width: 100vw; height: 100vh; outline: none; -webkit-tap-highlight-color: transparent; }
-            #bg-gradient {
-                position: absolute; top:0; left:0; width:100vw; height:100vh; z-index:-1;
-                transition: background 1.5s ease;
-                background: transparent;
-            }
-        </style>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-        </head>
-        <body>
-        <div id="bg-gradient"></div>
-        <script>
-            let scene, camera, renderer, activeObject, leaves = [], fallingLeaves = [];
-            let currentStyle = '';
-            let currentMood = '';
-            let leafMaterial, barkMaterial, coreMaterial, blobMaterial;
-            let ambientLight, dirLight;
-            const raycaster = new THREE.Raycaster();
-            const mouse = new THREE.Vector2();
+    val wagRotation by infiniteTransition.animateFloat(
+        initialValue = -15f,
+        targetValue = 15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (petMood == PetMood.PETTING || petMood == PetMood.HAPPY) 150 else 1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "wag"
+    )
 
-            // Rotation state
-            let targetRotationY = 0;
-            let currentRotationY = 0;
+    val earRotation by infiniteTransition.animateFloat(
+        initialValue = -8f,
+        targetValue = 8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (petMood == PetMood.PETTING) 250 else 1500, easing = EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "ears"
+    )
+    
+    val floatY by infiniteTransition.animateFloat(
+        initialValue = -10f,
+        targetValue = 10f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "float"
+    )
 
-            function init() {
-                scene = new THREE.Scene();
-                
-                ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-                scene.add(ambientLight);
-                
-                dirLight = new THREE.DirectionalLight(0xfff5e6, 0.8);
-                dirLight.position.set(10, 20, 15);
-                dirLight.castShadow = true;
-                scene.add(dirLight);
-
-                const backLight = new THREE.DirectionalLight(0xaabbff, 0.3);
-                backLight.position.set(-10, 10, -10);
-                scene.add(backLight);
-
-                camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-                camera.position.set(0, 5, 20);
-
-                renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                renderer.setPixelRatio(window.devicePixelRatio);
-                renderer.shadowMap.enabled = true;
-                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-                document.body.appendChild(renderer.domElement);
-
-                activeObject = new THREE.Group();
-                scene.add(activeObject);
-
-                setupEvents();
-                animate();
-            }
-
-            function createBarkTexture() {
-                const canvas = document.createElement('canvas');
-                canvas.width = 256; canvas.height = 256;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#4a3b2c';
-                ctx.fillRect(0,0,256,256);
-                for(let i=0; i<500; i++){
-                    ctx.fillStyle = Math.random() > 0.5 ? '#3a2b1c' : '#5a4b3c';
-                    ctx.fillRect(Math.random()*256, Math.random()*256, Math.random()*20, Math.random()*3);
-                }
-                const tex = new THREE.CanvasTexture(canvas);
-                tex.wrapS = THREE.RepeatWrapping;
-                tex.wrapT = THREE.RepeatWrapping;
-                return tex;
-            }
-
-            function buildTree() {
-                const group = new THREE.Group();
-                
-                barkMaterial = new THREE.MeshStandardMaterial({ 
-                    color: 0x5c4033, 
-                    roughness: 0.9,
-                    map: createBarkTexture()
-                });
-                
-                leafMaterial = new THREE.MeshStandardMaterial({ 
-                    color: 0x3b7a57, 
-                    roughness: 0.6,
-                    side: THREE.DoubleSide
-                });
-
-                leaves = [];
-                
-                const leafGeo = new THREE.PlaneGeometry(1.0, 1.0);
-                leafGeo.translate(0, 0.5, 0);
-
-                // Procedural generation representing a Bonsai
-                function recurse(g, length, radius, depth) {
-                    const branch = new THREE.Mesh(
-                        new THREE.CylinderGeometry(radius*0.65, radius, length, 8),
-                        barkMaterial
-                    );
-                    branch.position.y = length / 2;
-                    branch.castShadow = true;
-                    branch.receiveShadow = true;
-                    g.add(branch);
-
-                    const endPoint = new THREE.Group();
-                    endPoint.position.y = length;
-                    g.add(endPoint);
-
-                    if (depth === 0) {
-                        for(let i=0; i<8; i++) {
-                            const leaf = new THREE.Mesh(leafGeo, leafMaterial);
-                            leaf.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
-                            leaf.position.set((Math.random()-0.5)*1.5, (Math.random()-0.5)*1.5, (Math.random()-0.5)*1.5);
-                            leaf.scale.setScalar(1.5 + Math.random());
-                            leaf.castShadow = true;
-                            endPoint.add(leaf);
-                            leaves.push(leaf);
-                        }
-                        return;
-                    }
-
-                    const numBranches = (depth === 5) ? 2 : (depth >= 3 ? 3 : 2); 
-                    for(let i=0; i<numBranches; i++) {
-                        const newGrp = new THREE.Group();
-                        endPoint.add(newGrp);
-                        
-                        const angleY = (Math.PI * 2 / numBranches) * i + (Math.random()-0.5)*0.8;
-                        const angleX = 0.3 + Math.random() * 0.5;
-                        
-                        newGrp.rotation.y = angleY;
-                        newGrp.rotation.x = angleX;
-                        
-                        recurse(newGrp, length * (0.65 + Math.random()*0.15), radius * 0.7, depth - 1);
-                    }
-                }
-                
-                const rootGroup = new THREE.Group();
-                recurse(rootGroup, 3.5, 0.7, 5);
-                group.add(rootGroup);
-                
-                const ground = new THREE.Mesh(
-                    new THREE.CylinderGeometry(4.5, 5, 0.8, 24),
-                    new THREE.MeshStandardMaterial({color: 0x2e3b22, roughness: 1.0})
-                );
-                ground.position.y = -0.4;
-                ground.receiveShadow = true;
-                group.add(ground);
-
-                group.position.y = -2;
-                return group;
-            }
-
-            function buildFuturistic() {
-                const group = new THREE.Group();
-                coreMaterial = new THREE.MeshStandardMaterial({ 
-                    color: 0x00ffff, 
-                    emissive: 0x00aaff, 
-                    emissiveIntensity: 0.8,
-                    wireframe: true 
-                });
-                const core = new THREE.Mesh(new THREE.IcosahedronGeometry(2.5, 2), coreMaterial);
-                group.add(core);
-
-                const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
-                for(let i=0; i<3; i++) {
-                    const ring = new THREE.Mesh(new THREE.TorusGeometry(4 + i*1.2, 0.05, 16, 100), ringMat);
-                    ring.rotation.x = Math.random() * Math.PI;
-                    ring.rotation.y = Math.random() * Math.PI;
-                    ring.userData = { speedX: (Math.random()-0.5)*0.02, speedY: (Math.random()-0.5)*0.02 };
-                    group.add(ring);
-                }
-                return group;
-            }
-
-            function buildTraditional() {
-                const group = new THREE.Group();
-                blobMaterial = new THREE.MeshStandardMaterial({ color: 0xffb6c1, roughness: 0.4 });
-                const geo = new THREE.SphereGeometry(3.5, 32, 32);
-                const pos = geo.getAttribute('position');
-                for (let i = 0; i < pos.count; i++) {
-                    let y = pos.getY(i);
-                    if (y < 0) {
-                        pos.setY(i, y * 0.5); // flatten bottom
-                        pos.setX(i, pos.getX(i) * 1.2); pos.setZ(i, pos.getZ(i) * 1.2);
-                    } else if (y > 2) {
-                        pos.setY(i, y * 1.3); // elongate top
-                    }
-                }
-                geo.computeVertexNormals();
-                const blob = new THREE.Mesh(geo, blobMaterial);
-                blob.castShadow = true;
-                blob.position.y = -1;
-                group.add(blob);
-                
-                const eyeMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-                const eyeG = new THREE.SphereGeometry(0.35, 16, 16);
-                const eyeL = new THREE.Mesh(eyeG, eyeMat); eyeL.position.set(-1.0, 1.0, 3.2);
-                const eyeR = eyeL.clone(); eyeR.position.set(1.0, 1.0, 3.2);
-                group.add(eyeL); group.add(eyeR);
-
-                const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.08, 8, 16, Math.PI), eyeMat);
-                mouth.position.set(0, -0.2, 3.4); mouth.rotation.x = Math.PI;
-                group.add(mouth);
-
-                return group;
-            }
-
-            function setStyle(style) {
-                if (currentStyle === style) return;
-                currentStyle = style;
-                
-                scene.remove(activeObject);
-                if (style === 'ZEN') activeObject = buildTree();
-                else if (style === 'FUTURISTIC') activeObject = buildFuturistic();
-                else activeObject = buildTraditional();
-                
-                scene.add(activeObject);
-                setMood(currentMood, true);
-            }
-
-            function setMood(mood, force = false) {
-                if (currentMood === mood && !force) return;
-                currentMood = mood;
-                
-                const bg = document.getElementById('bg-gradient');
-                
-                if (currentStyle === 'ZEN') {
-                    if (mood === 'HAPPY' || mood === 'PETTING') {
-                        bg.style.background = 'radial-gradient(circle at top, #87CEEB 0%, #e0f6ff 100%)';
-                        dirLight.color.setHex(0xffffff); ambientLight.intensity = 0.8;
-                        if(leafMaterial) leafMaterial.color.setHex(0x3b7a57); 
-                    } else if (mood === 'IDLE') {
-                        bg.style.background = 'radial-gradient(circle at top, #F4A460 0%, #ffe4b5 100%)';
-                        dirLight.color.setHex(0xffddaa); ambientLight.intensity = 0.6;
-                        if(leafMaterial) leafMaterial.color.setHex(0x8f9779); 
-                    } else { // ANGRY 
-                        bg.style.background = 'radial-gradient(circle at top, #4a5568 0%, #2d3748 100%)';
-                        dirLight.color.setHex(0xaaaaaa); ambientLight.intensity = 0.3;
-                        if(leafMaterial) leafMaterial.color.setHex(0x6b5e53); 
-                    }
-                } else if (currentStyle === 'FUTURISTIC') {
-                    bg.style.background = 'transparent';
-                    let c = 0x00ffff;
-                    if(mood === 'HAPPY' || mood === 'PETTING') c = 0x00ff00;
-                    else if(mood === 'ANGRY') c = 0xff0000;
-                    if(coreMaterial) { coreMaterial.color.setHex(c); coreMaterial.emissive.setHex(c); }
-                } else {
-                    bg.style.background = 'transparent';
-                    let c = 0xffb6c1;
-                    if(mood === 'HAPPY' || mood === 'PETTING') c = 0xff69b4;
-                    else if(mood === 'ANGRY') c = 0xcd5c5c;
-                    if(blobMaterial) blobMaterial.color.setHex(c);
-                }
-                
-                if(activeObject && currentStyle !== 'ZEN') {
-                    const s = mood === 'PETTING' ? 1.1 : 1.0;
-                    activeObject.scale.set(s, s, s);
-                }
-            }
-
-            function spawnFallingLeaf(intersectPoint) {
-                if(currentStyle !== 'ZEN' || fallingLeaves.length > 50) return;
-                const leaf = new THREE.Mesh(
-                    new THREE.PlaneGeometry(0.3, 0.3),
-                    new THREE.MeshBasicMaterial({ color: leafMaterial.color, side: THREE.DoubleSide })
-                );
-                leaf.position.copy(intersectPoint);
-                leaf.position.x += (Math.random() - 0.5);
-                leaf.position.y += (Math.random() - 0.5);
-                leaf.position.z += (Math.random() - 0.5);
-                leaf.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
-                
-                scene.add(leaf);
-                fallingLeaves.push({
-                    mesh: leaf,
-                    vy: -0.015 - Math.random()*0.02,
-                    vx: (Math.random()-0.5)*0.03,
-                    vz: (Math.random()-0.5)*0.03,
-                    rx: Math.random()*0.1,
-                    ry: Math.random()*0.1,
-                    life: 2.5
-                });
-            }
-
-            function setupEvents() {
-                let isPointerDown = false;
-                let lastPointer = {x:0, y:0};
-                let isScrolling = false;
-
-                const parseEvent = (e) => {
-                    if(e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                    return { x: e.clientX, y: e.clientY };
-                };
-
-                const onDown = (e) => {
-                    isPointerDown = true;
-                    isScrolling = false;
-                    lastPointer = parseEvent(e);
-                    try { window.AndroidInterface.onInteractionStart(); } catch(err){}
-                };
-
-                const onMove = (e) => {
-                    if(!isPointerDown) return;
-                    const p = parseEvent(e);
-                    const dx = p.x - lastPointer.x;
-                    const dy = p.y - lastPointer.y;
-                    
-                    // If moving vertically mostly, native scroll should take over, don't stop it.
-                    if (Math.abs(dy) > Math.abs(dx)) {
-                        isScrolling = true;
-                    }
-
-                    if (!isScrolling) {
-                        targetRotationY += dx * 0.01;
-                    }
-                    
-                    if(currentStyle === 'ZEN') {
-                        mouse.x = (p.x / window.innerWidth) * 2 - 1;
-                        mouse.y = -(p.y / window.innerHeight) * 2 + 1;
-                        raycaster.setFromCamera(mouse, camera);
-                        const intersects = raycaster.intersectObject(activeObject, true);
-                        if(intersects.length > 0 && Math.random() > 0.4) {
-                            spawnFallingLeaf(intersects[0].point);
-                        }
-                    }
-                    lastPointer = p;
-                };
-
-                const onUp = () => {
-                    isPointerDown = false;
-                    try { window.AndroidInterface.onInteractionEnd(); } catch(err){}
-                };
-
-                const canvas = renderer.domElement;
-                canvas.addEventListener('touchstart', onDown, {passive: true});
-                canvas.addEventListener('touchmove', onMove, {passive: true});
-                canvas.addEventListener('touchend', onUp, {passive: true});
-                canvas.addEventListener('touchcancel', onUp, {passive: true});
-                
-                canvas.addEventListener('mousedown', onDown);
-                window.addEventListener('mousemove', onMove);
-                window.addEventListener('mouseup', onUp);
-                
-                window.addEventListener('resize', () => {
-                    if(camera && renderer) {
-                        camera.aspect = window.innerWidth / window.innerHeight;
-                        camera.updateProjectionMatrix();
-                        renderer.setSize(window.innerWidth, window.innerHeight);
-                    }
-                });
-            }
-
-            const clock = new THREE.Clock();
-            function animate() {
-                requestAnimationFrame(animate);
-                const delta = clock.getDelta();
-                const time = clock.getElapsedTime();
-
-                // Smooth rotation interpolation
-                currentRotationY += (targetRotationY - currentRotationY) * 0.1;
-                if(activeObject) {
-                    activeObject.rotation.y = currentRotationY;
-                }
-
-                if (currentStyle === 'ZEN' && activeObject && activeObject.children.length > 0) {
-                    // Gentle wind swaying the tree slightly
-                    activeObject.children[0].rotation.z = Math.sin(time * 0.5) * 0.015;
-                    activeObject.children[0].rotation.x = Math.cos(time * 0.4) * 0.015;
-                } else if (currentStyle === 'FUTURISTIC' && activeObject) {
-                    activeObject.position.y = Math.sin(time * 2) * 0.5;
-                    for(let i=1; i<activeObject.children.length; i++) {
-                        const ring = activeObject.children[i];
-                        ring.rotation.x += ring.userData.speedX;
-                        // ring rotation relative to object rotation
-                        ring.rotation.y += ring.userData.speedY; 
-                    }
-                } else if (currentStyle === 'TRADITIONAL' && activeObject) {
-                    if(currentMood !== 'ANGRY') {
-                        activeObject.children[0].scale.y = 1 + Math.sin(time * 4) * 0.05;
-                    }
-                }
-
-                // Update particles
-                for(let i=fallingLeaves.length-1; i>=0; i--) {
-                    const l = fallingLeaves[i];
-                    l.mesh.position.y += l.vy;
-                    l.mesh.position.x += l.vx + Math.sin(time*3)*0.01;
-                    l.mesh.position.z += l.vz + Math.cos(time*2)*0.01;
-                    l.mesh.rotation.x += l.rx;
-                    l.mesh.rotation.y += l.ry;
-                    l.life -= delta;
-                    if(l.life <= 0 || l.mesh.position.y < -5) {
-                        scene.remove(l.mesh);
-                        fallingLeaves.splice(i, 1);
-                    }
-                }
-
-                renderer.render(scene, camera);
-            }
-
-            try { window.onload = init; } catch(e) {}
-            window.setStyle = setStyle;
-            window.setMood = setMood;
-        </script>
-        </body>
-        </html>
-        """.trimIndent()
-    }
-
-    val dynamicBgColor by androidx.compose.animation.animateColorAsState(
+    val dynamicBgColor by animateColorAsState(
         targetValue = when (petMood) {
-            PetMood.ANGRY -> Color.DarkGray.copy(alpha = 0.3f)
+            PetMood.ANGRY -> Color.Red.copy(alpha = 0.05f)
             PetMood.HAPPY -> mainColor.copy(alpha = 0.15f)
             PetMood.PETTING -> mainColor.copy(alpha = 0.2f)
             else -> Color.Transparent
         }, 
-        animationSpec = androidx.compose.animation.core.tween(1000)
+        animationSpec = tween(1000),
+        label = "bg"
     )
 
     Box(
-        modifier = modifier.background(dynamicBgColor),
+        modifier = modifier
+            .background(dynamicBgColor)
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { onInteractStart() },
+                    onDragEnd = { onInteractEnd() },
+                    onDragCancel = { onInteractEnd() },
+                    onDrag = { _, _ -> }
+                )
+            },
         contentAlignment = Alignment.Center
     ) {
-        androidx.compose.ui.viewinterop.AndroidView(
-            factory = { ctx ->
-                android.webkit.WebView(ctx).apply {
-                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                    setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    webChromeClient = android.webkit.WebChromeClient()
-                    
-                    addJavascriptInterface(object : Any() {
-                        @android.webkit.JavascriptInterface
-                        fun onInteractionStart() {
-                            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch { onInteractStart() }
-                        }
-                        @android.webkit.JavascriptInterface
-                        fun onInteractionEnd() {
-                            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch { onInteractEnd() }
-                        }
-                    }, "AndroidInterface")
-                    
-                    webViewClient = object : android.webkit.WebViewClient() {
-                        override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
-                            isLoaded = true
-                            view?.evaluateJavascript("window.setStyle('$petStyle'); window.setMood('${petMood.name}');", null)
-                        }
-                    }
-                    
-                    loadDataWithBaseURL("https://threejs.org", htmlContent, "text/html", "UTF-8", null)
+        androidx.compose.foundation.Canvas(modifier = Modifier.size(250.dp)) {
+            val cx = size.width / 2
+            val cy = size.height / 2 + floatY
+            val baseRadius = size.minDimension / 3.5f * breathingScale
+
+            translate(top = floatY) {
+                when (petType) {
+                    PetType.CAT -> drawCatPuppet(cx, size.height / 2, baseRadius, mainColor, petMood, wagRotation, earRotation)
+                    PetType.PIG -> drawPigPuppet(cx, size.height / 2, baseRadius, mainColor, petMood, wagRotation, earRotation)
+                    PetType.DOG -> drawDogPuppet(cx, size.height / 2, baseRadius, mainColor, petMood, wagRotation, earRotation)
+                    PetType.DRAGON_FUTURISTIC -> drawDragonPuppet(cx, size.height / 2, baseRadius, mainColor, petMood, wagRotation)
+                    PetType.ZEN_TREE -> drawTreePuppet(cx, size.height / 2, baseRadius, mainColor, petMood, wagRotation)
                 }
-            },
-            update = { webView ->
-                if (isLoaded) {
-                    webView.evaluateJavascript("window.setStyle('$petStyle'); window.setMood('${petMood.name}');", null)
-                }
-            },
-            modifier = Modifier.fillMaxSize()
-        )
+            }
+        }
+    }
+}
+
+fun DrawScope.drawCatPuppet(cx: Float, cy: Float, radius: Float, color: Color, mood: PetMood, wag: Float, earRot: Float) {
+    // Tail
+    rotate(wag, pivot = androidx.compose.ui.geometry.Offset(cx + radius * 0.8f, cy + radius * 0.5f)) {
+        val tailPath = Path().apply {
+            moveTo(cx + radius * 0.8f, cy + radius * 0.5f)
+            quadraticBezierTo(cx + radius * 1.5f, cy, cx + radius * 1.8f, cy - radius * 0.5f)
+        }
+        drawPath(tailPath, color, style = Stroke(width = radius * 0.3f, cap = StrokeCap.Round))
+    }
+
+    // Body
+    drawCircle(color, radius = radius, center = androidx.compose.ui.geometry.Offset(cx, cy))
+    
+    // Ears
+    val earColor = color.copy(alpha = 0.8f)
+    // Left Ear
+    rotate(-earRot, pivot = androidx.compose.ui.geometry.Offset(cx - radius * 0.6f, cy - radius * 0.6f)) {
+        val path = Path().apply {
+            moveTo(cx - radius * 0.9f, cy - radius * 0.3f)
+            lineTo(cx - radius * 0.8f, cy - radius * 1.2f)
+            lineTo(cx - radius * 0.2f, cy - radius * 0.8f)
+            close()
+        }
+        drawPath(path, earColor)
+    }
+    // Right Ear
+    rotate(earRot, pivot = androidx.compose.ui.geometry.Offset(cx + radius * 0.6f, cy - radius * 0.6f)) {
+        val path = Path().apply {
+            moveTo(cx + radius * 0.9f, cy - radius * 0.3f)
+            lineTo(cx + radius * 0.8f, cy - radius * 1.2f)
+            lineTo(cx + radius * 0.2f, cy - radius * 0.8f)
+            close()
+        }
+        drawPath(path, earColor)
+    }
+
+    // Face
+    drawFace(cx, cy, radius, mood)
+}
+
+fun DrawScope.drawPigPuppet(cx: Float, cy: Float, radius: Float, color: Color, mood: PetMood, wag: Float, earRot: Float) {
+    // Tail
+    rotate(wag, pivot = androidx.compose.ui.geometry.Offset(cx + radius * 0.9f, cy + radius * 0.2f)) {
+        val tailPath = Path().apply {
+            moveTo(cx + radius * 0.8f, cy + radius * 0.2f)
+            cubicTo(
+                cx + radius * 1.2f, cy - radius * 0.2f,
+                cx + radius * 1.4f, cy + radius * 0.4f,
+                cx + radius * 1.1f, cy + radius * 0.3f
+            )
+        }
+        drawPath(tailPath, color.copy(alpha = 0.8f), style = Stroke(width = radius * 0.15f, cap = StrokeCap.Round))
+    }
+
+    // Body
+    drawCircle(color, radius = radius, center = androidx.compose.ui.geometry.Offset(cx, cy))
+    
+    // Snout
+    drawOval(
+        color.copy(alpha = 0.6f),
+        topLeft = androidx.compose.ui.geometry.Offset(cx - radius * 0.4f, cy + radius * 0.1f),
+        size = androidx.compose.ui.geometry.Size(radius * 0.8f, radius * 0.5f)
+    )
+    // Snout holes
+    drawCircle(Color.DarkGray, radius = radius * 0.08f, center = androidx.compose.ui.geometry.Offset(cx - radius * 0.15f, cy + radius * 0.35f))
+    drawCircle(Color.DarkGray, radius = radius * 0.08f, center = androidx.compose.ui.geometry.Offset(cx + radius * 0.15f, cy + radius * 0.35f))
+
+    // Ears
+    val earColor = color.copy(alpha = 0.9f)
+    rotate(-earRot, pivot = androidx.compose.ui.geometry.Offset(cx - radius * 0.6f, cy - radius * 0.7f)) {
+        drawOval(earColor, topLeft = androidx.compose.ui.geometry.Offset(cx - radius * 1.1f, cy - radius * 1.1f), size = androidx.compose.ui.geometry.Size(radius * 0.6f, radius * 0.6f))
+    }
+    rotate(earRot, pivot = androidx.compose.ui.geometry.Offset(cx + radius * 0.6f, cy - radius * 0.7f)) {
+        drawOval(earColor, topLeft = androidx.compose.ui.geometry.Offset(cx + radius * 0.5f, cy - radius * 1.1f), size = androidx.compose.ui.geometry.Size(radius * 0.6f, radius * 0.6f))
+    }
+
+    // Face (eyes above snout)
+    drawFace(cx, cy - radius * 0.2f, radius, mood)
+}
+
+fun DrawScope.drawDogPuppet(cx: Float, cy: Float, radius: Float, color: Color, mood: PetMood, wag: Float, earRot: Float) {
+    // Tail
+    rotate(wag * 2, pivot = androidx.compose.ui.geometry.Offset(cx + radius * 0.8f, cy + radius * 0.4f)) {
+        val tailPath = Path().apply {
+            moveTo(cx + radius * 0.7f, cy + radius * 0.4f)
+            lineTo(cx + radius * 1.5f, cy + radius * 0.1f)
+        }
+        drawPath(tailPath, color, style = Stroke(width = radius * 0.3f, cap = StrokeCap.Round))
+    }
+
+    // Body
+    drawCircle(color, radius = radius, center = androidx.compose.ui.geometry.Offset(cx, cy))
+
+    // Ears (Floppy)
+    rotate(earRot, pivot = androidx.compose.ui.geometry.Offset(cx - radius * 0.7f, cy - radius * 0.3f)) {
+        drawOval(color.copy(alpha = 0.8f), topLeft = androidx.compose.ui.geometry.Offset(cx - radius * 1.2f, cy - radius * 0.3f), size = androidx.compose.ui.geometry.Size(radius * 0.5f, radius * 1.0f))
+    }
+    rotate(-earRot, pivot = androidx.compose.ui.geometry.Offset(cx + radius * 0.7f, cy - radius * 0.3f)) {
+        drawOval(color.copy(alpha = 0.8f), topLeft = androidx.compose.ui.geometry.Offset(cx + radius * 0.7f, cy - radius * 0.3f), size = androidx.compose.ui.geometry.Size(radius * 0.5f, radius * 1.0f))
+    }
+
+    // Muzzle
+    drawCircle(Color.White, radius = radius * 0.4f, center = androidx.compose.ui.geometry.Offset(cx, cy + radius * 0.3f))
+    // Nose
+    drawCircle(Color.Black, radius = radius * 0.12f, center = androidx.compose.ui.geometry.Offset(cx, cy + radius * 0.2f))
+
+    // Face
+    drawFace(cx, cy - radius * 0.1f, radius, mood)
+}
+
+fun DrawScope.drawDragonPuppet(cx: Float, cy: Float, radius: Float, color: Color, mood: PetMood, wag: Float) {
+    // Angular body
+    val bodyPath = Path().apply {
+        moveTo(cx, cy - radius)
+        lineTo(cx + radius, cy)
+        lineTo(cx, cy + radius)
+        lineTo(cx - radius, cy)
+        close()
+    }
+    drawPath(bodyPath, color)
+
+    // Glowing core
+    drawCircle(Color.Cyan, radius = radius * 0.4f, center = androidx.compose.ui.geometry.Offset(cx, cy))
+
+    // Floating outer bits rotating (simulated by wag)
+    rotate(wag * 4, pivot = androidx.compose.ui.geometry.Offset(cx, cy)) {
+        val outerRing = Path().apply {
+            addRect(androidx.compose.ui.geometry.Rect(cx - radius * 1.2f, cy - radius * 0.1f, cx + radius * 1.2f, cy + radius * 0.1f))
+            addRect(androidx.compose.ui.geometry.Rect(cx - radius * 0.1f, cy - radius * 1.2f, cx + radius * 0.1f, cy + radius * 1.2f))
+        }
+        drawPath(outerRing, color.copy(alpha = 0.5f))
+    }
+
+    // Eyes
+    val eyeColor = if (mood == PetMood.ANGRY) Color.Red else Color.Cyan
+    drawCircle(eyeColor, radius = radius * 0.1f, center = androidx.compose.ui.geometry.Offset(cx - radius * 0.3f, cy - radius * 0.4f))
+    drawCircle(eyeColor, radius = radius * 0.1f, center = androidx.compose.ui.geometry.Offset(cx + radius * 0.3f, cy - radius * 0.4f))
+}
+
+fun DrawScope.drawTreePuppet(cx: Float, cy: Float, radius: Float, color: Color, mood: PetMood, wag: Float) {
+    // Trunk
+    drawRect(
+        Color(0xFF8B5A2B), 
+        topLeft = androidx.compose.ui.geometry.Offset(cx - radius * 0.2f, cy),
+        size = androidx.compose.ui.geometry.Size(radius * 0.4f, radius * 1.5f)
+    )
+
+    // Canopy swaying
+    rotate(wag * 0.5f, pivot = androidx.compose.ui.geometry.Offset(cx, cy + radius)) {
+        val canopyColor = when(mood) {
+            PetMood.ANGRY -> Color(0xFF6B8E23)
+            PetMood.HAPPY, PetMood.PETTING -> color
+            else -> color.copy(alpha = 0.8f)
+        }
+        drawCircle(canopyColor, radius = radius * 1.2f, center = androidx.compose.ui.geometry.Offset(cx, cy - radius * 0.2f))
+        drawCircle(canopyColor, radius = radius * 0.8f, center = androidx.compose.ui.geometry.Offset(cx - radius * 0.8f, cy + radius * 0.2f))
+        drawCircle(canopyColor, radius = radius * 0.8f, center = androidx.compose.ui.geometry.Offset(cx + radius * 0.8f, cy + radius * 0.2f))
+    }
+
+    // Face on trunk
+    drawFace(cx, cy + radius * 0.5f, radius * 0.5f, mood)
+}
+
+fun DrawScope.drawFace(cx: Float, cy: Float, radius: Float, mood: PetMood) {
+    val eyeColor = Color.DarkGray
+    val eyeRadius = radius * 0.12f
+    val eyeY = cy - radius * 0.2f
+
+    when (mood) {
+        PetMood.HAPPY, PetMood.PETTING -> {
+            // Happy closed eyes ^ ^
+            val leftEye = Path().apply {
+                moveTo(cx - radius * 0.4f, eyeY)
+                quadraticBezierTo(cx - radius * 0.3f, eyeY - radius * 0.2f, cx - radius * 0.2f, eyeY)
+            }
+            val rightEye = Path().apply {
+                moveTo(cx + radius * 0.2f, eyeY)
+                quadraticBezierTo(cx + radius * 0.3f, eyeY - radius * 0.2f, cx + radius * 0.4f, eyeY)
+            }
+            drawPath(leftEye, eyeColor, style = Stroke(width = radius * 0.08f, cap = StrokeCap.Round))
+            drawPath(rightEye, eyeColor, style = Stroke(width = radius * 0.08f, cap = StrokeCap.Round))
+            
+            // Smile
+            val smile = Path().apply {
+                moveTo(cx - radius * 0.15f, cy + radius * 0.1f)
+                quadraticBezierTo(cx, cy + radius * 0.3f, cx + radius * 0.15f, cy + radius * 0.1f)
+            }
+            drawPath(smile, eyeColor, style = Stroke(width = radius * 0.08f, cap = StrokeCap.Round))
+        }
+        PetMood.ANGRY -> {
+            // Angry angled eyes \ /
+            val leftEye = Path().apply { moveTo(cx - radius * 0.4f, eyeY - radius * 0.1f); lineTo(cx - radius * 0.2f, eyeY + radius * 0.1f) }
+            val rightEye = Path().apply { moveTo(cx + radius * 0.4f, eyeY - radius * 0.1f); lineTo(cx + radius * 0.2f, eyeY + radius * 0.1f) }
+            drawPath(leftEye, eyeColor, style = Stroke(width = radius * 0.08f, cap = StrokeCap.Round))
+            drawPath(rightEye, eyeColor, style = Stroke(width = radius * 0.08f, cap = StrokeCap.Round))
+            
+            // Frown
+            val frown = Path().apply {
+                moveTo(cx - radius * 0.15f, cy + radius * 0.2f)
+                quadraticBezierTo(cx, cy + radius * 0.05f, cx + radius * 0.15f, cy + radius * 0.2f)
+            }
+            drawPath(frown, eyeColor, style = Stroke(width = radius * 0.08f, cap = StrokeCap.Round))
+        }
+        else -> {
+            // Idle Normal eyes
+            drawCircle(eyeColor, radius = eyeRadius, center = androidx.compose.ui.geometry.Offset(cx - radius * 0.3f, eyeY))
+            // Blinking logic can be added later, but standard open for now.
+            drawCircle(eyeColor, radius = eyeRadius, center = androidx.compose.ui.geometry.Offset(cx + radius * 0.3f, eyeY))
+            
+            // Small mouth
+            drawCircle(eyeColor, radius = radius * 0.04f, center = androidx.compose.ui.geometry.Offset(cx, cy + radius * 0.15f))
+        }
     }
 }
 
